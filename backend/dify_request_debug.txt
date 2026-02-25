@@ -1,0 +1,98 @@
+============================================================
+发送给Dify智能体的请求内容
+============================================================
+
+API地址: http://localhost:83/v1/chat-messages
+
+Headers:
+{
+  "Authorization": "Bearer ********************",
+  "Content-Type": "application/json"
+}
+
+Payload:
+{
+  "inputs": {
+    "diagnosis": {
+      "student_name": "小美",
+      "average_prediction": 0.9722,
+      "accuracy": 0.6667,
+      "knowledge_mastery": {
+        "121": {
+          "predicted_mastery": 0.9722,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.3055
+        },
+        "120": {
+          "predicted_mastery": 0.9722,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.3055
+        },
+        "4": {
+          "predicted_mastery": 0.9722,
+          "actual_mastery": 0.6,
+          "performance_gap": 0.3722
+        },
+        "150": {
+          "predicted_mastery": 0.9722,
+          "actual_mastery": 1.0,
+          "performance_gap": -0.0278
+        }
+      },
+      "strengths": [
+        150
+      ],
+      "weaknesses": []
+    },
+    "knowledge_names": {
+      "120": "信息社会及其特征",
+      "121": "信息社会",
+      "4": "数据的概念",
+      "150": "物联网"
+    }
+  },
+  "query": "请为学生 小美 生成学习评语。\n学生的平均预测掌握度: 0.9722\n学生的实际正确率: 0.6667\n优势知识点: [150]\n薄弱知识点: []\n知识点名称: {\"120\": \"信息社会及其特征\", \"121\": \"信息社会\", \"4\": \"数据的概念\", \"150\": \"物联网\"}",
+  "response_mode": "blocking",
+  "user": "teacher"
+}
+
+诊断数据 (格式化):
+{
+  "student_name": "小美",
+  "average_prediction": 0.9722,
+  "accuracy": 0.6667,
+  "knowledge_mastery": {
+    "121": {
+      "predicted_mastery": 0.9722,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.3055
+    },
+    "120": {
+      "predicted_mastery": 0.9722,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.3055
+    },
+    "4": {
+      "predicted_mastery": 0.9722,
+      "actual_mastery": 0.6,
+      "performance_gap": 0.3722
+    },
+    "150": {
+      "predicted_mastery": 0.9722,
+      "actual_mastery": 1.0,
+      "performance_gap": -0.0278
+    }
+  },
+  "strengths": [
+    150
+  ],
+  "weaknesses": []
+}
+
+知识点名称:
+{
+  "120": "信息社会及其特征",
+  "121": "信息社会",
+  "4": "数据的概念",
+  "150": "物联网"
+}

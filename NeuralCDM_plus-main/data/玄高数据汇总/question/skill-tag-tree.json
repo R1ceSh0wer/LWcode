@@ -1,0 +1,1692 @@
+[
+    {
+        "id": 191,
+        "tagName": "必修一 数据与计算",
+        "parentID": 0,
+        "questionBankID": 1,
+        "children": [
+            {
+                "id": 192,
+                "tagName": "数据与信息",
+                "parentID": 191,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 193,
+                        "tagName": "数据及其特征",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 194,
+                                "tagName": "数据的概念",
+                                "parentID": 193,
+                                "questionBankID": 1,
+                                "count": 150
+                            },
+                            {
+                                "id": 195,
+                                "tagName": "数据的特征",
+                                "parentID": 193,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 196,
+                                "tagName": "根据数据来源分类",
+                                "parentID": 193,
+                                "questionBankID": 1,
+                                "count": 8
+                            },
+                            {
+                                "id": 1649,
+                                "tagName": "数据的收集方法",
+                                "parentID": 193,
+                                "questionBankID": 1,
+                                "count": 4
+                            }
+                        ],
+                        "count": 10
+                    },
+                    {
+                        "id": 209,
+                        "tagName": "数据编码",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 210,
+                                "tagName": "模拟信号、数字信号及转换",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 42
+                            },
+                            {
+                                "id": 211,
+                                "tagName": "进制与数制转换",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 93
+                            },
+                            {
+                                "id": 212,
+                                "tagName": "文字编码：ASCII码",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 42
+                            },
+                            {
+                                "id": 213,
+                                "tagName": "文字编码：国标码（汉字编码）",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 25
+                            },
+                            {
+                                "id": 214,
+                                "tagName": "图像编码",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 23
+                            },
+                            {
+                                "id": 215,
+                                "tagName": "声音编码",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 56
+                            },
+                            {
+                                "id": 380,
+                                "tagName": "视频编码",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 3
+                            },
+                            {
+                                "id": 577,
+                                "tagName": "编码的概念",
+                                "parentID": 209,
+                                "questionBankID": 1,
+                                "count": 8
+                            }
+                        ],
+                        "count": 26
+                    },
+                    {
+                        "id": 216,
+                        "tagName": "信息及其特征",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 217,
+                                "tagName": "信息概念",
+                                "parentID": 216,
+                                "questionBankID": 1,
+                                "count": 61
+                            },
+                            {
+                                "id": 218,
+                                "tagName": "信息特征",
+                                "parentID": 216,
+                                "questionBankID": 1,
+                                "count": 43
+                            },
+                            {
+                                "id": 573,
+                                "tagName": "信息与数据的关系",
+                                "parentID": 216,
+                                "questionBankID": 1,
+                                "count": 3
+                            }
+                        ],
+                        "count": 10
+                    },
+                    {
+                        "id": 220,
+                        "tagName": "知识与智慧",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 221,
+                                "tagName": "知识",
+                                "parentID": 220,
+                                "questionBankID": 1,
+                                "count": 15
+                            },
+                            {
+                                "id": 222,
+                                "tagName": "智慧",
+                                "parentID": 220,
+                                "questionBankID": 1,
+                                "count": 4
+                            },
+                            {
+                                "id": 223,
+                                "tagName": "数据、信息、知识和智慧的关系",
+                                "parentID": 220,
+                                "questionBankID": 1,
+                                "count": 30
+                            }
+                        ],
+                        "count": 0
+                    },
+                    {
+                        "id": 280,
+                        "tagName": "数据分析",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 208,
+                                "tagName": "数据分析报告",
+                                "parentID": 280,
+                                "questionBankID": 1,
+                                "count": 25
+                            },
+                            {
+                                "id": 288,
+                                "tagName": "数据的分析",
+                                "parentID": 280,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 205,
+                                        "tagName": "数据分析的概念与作用",
+                                        "parentID": 288,
+                                        "questionBankID": 1,
+                                        "count": 17
+                                    },
+                                    {
+                                        "id": 206,
+                                        "tagName": "数据分析的一般过程与选择",
+                                        "parentID": 288,
+                                        "questionBankID": 1,
+                                        "count": 14
+                                    },
+                                    {
+                                        "id": 207,
+                                        "tagName": "数据分析的基本方法",
+                                        "parentID": 288,
+                                        "questionBankID": 1,
+                                        "children": [
+                                            {
+                                                "id": 289,
+                                                "tagName": "特征探索",
+                                                "parentID": 207,
+                                                "questionBankID": 1,
+                                                "count": 7
+                                            },
+                                            {
+                                                "id": 290,
+                                                "tagName": "关联分析",
+                                                "parentID": 207,
+                                                "questionBankID": 1,
+                                                "count": 9
+                                            },
+                                            {
+                                                "id": 291,
+                                                "tagName": "聚类分析",
+                                                "parentID": 207,
+                                                "questionBankID": 1,
+                                                "count": 5
+                                            },
+                                            {
+                                                "id": 292,
+                                                "tagName": "数据分类",
+                                                "parentID": 207,
+                                                "questionBankID": 1,
+                                                "count": 4
+                                            }
+                                        ],
+                                        "count": 0
+                                    }
+                                ],
+                                "count": 1
+                            },
+                            {
+                                "id": 293,
+                                "tagName": "数据的可视化表达",
+                                "parentID": 280,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 1650,
+                                        "tagName": "数据可视化表达的方式",
+                                        "parentID": 293,
+                                        "questionBankID": 1,
+                                        "count": 8
+                                    }
+                                ],
+                                "count": 17
+                            }
+                        ],
+                        "count": 13
+                    },
+                    {
+                        "id": 281,
+                        "tagName": "认识大数据",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 282,
+                                "tagName": "大数据概念",
+                                "parentID": 281,
+                                "questionBankID": 1,
+                                "count": 47
+                            },
+                            {
+                                "id": 283,
+                                "tagName": "大数据的特征",
+                                "parentID": 281,
+                                "questionBankID": 1,
+                                "count": 37
+                            },
+                            {
+                                "id": 284,
+                                "tagName": "大数据对日常生活的影响",
+                                "parentID": 281,
+                                "questionBankID": 1,
+                                "count": 47
+                            }
+                        ],
+                        "count": 11
+                    },
+                    {
+                        "id": 285,
+                        "tagName": "数据采集与存储",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 578,
+                                "tagName": "数据采集",
+                                "parentID": 285,
+                                "questionBankID": 1,
+                                "count": 47
+                            },
+                            {
+                                "id": 579,
+                                "tagName": "数据存储",
+                                "parentID": 285,
+                                "questionBankID": 1,
+                                "count": 24
+                            },
+                            {
+                                "id": 1651,
+                                "tagName": "数据采集的方法和工具",
+                                "parentID": 285,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1652,
+                                "tagName": "数据的存储和保护",
+                                "parentID": 285,
+                                "questionBankID": 1,
+                                "count": 2
+                            }
+                        ],
+                        "count": 2
+                    },
+                    {
+                        "id": 335,
+                        "tagName": "云存储与云计算",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "count": 20
+                    },
+                    {
+                        "id": 377,
+                        "tagName": "数据计算",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 198,
+                                "tagName": "数据的排序",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 61
+                            },
+                            {
+                                "id": 199,
+                                "tagName": "数据的筛选",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 33
+                            },
+                            {
+                                "id": 200,
+                                "tagName": "数据公式的应用",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 69
+                            },
+                            {
+                                "id": 201,
+                                "tagName": "数据函数的应用",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 44
+                            },
+                            {
+                                "id": 202,
+                                "tagName": "数据的分类汇总",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 11
+                            },
+                            {
+                                "id": 203,
+                                "tagName": "数据图表",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 59
+                            },
+                            {
+                                "id": 580,
+                                "tagName": "基本概念与格式",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 1653,
+                                "tagName": "常见的计算方式",
+                                "parentID": 377,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 0
+                    },
+                    {
+                        "id": 378,
+                        "tagName": "数据安全与保护",
+                        "parentID": 192,
+                        "questionBankID": 1,
+                        "count": 95
+                    }
+                ],
+                "count": 19
+            },
+            {
+                "id": 219,
+                "tagName": "数字化学习",
+                "parentID": 191,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 225,
+                        "tagName": "数字化工具",
+                        "parentID": 219,
+                        "questionBankID": 1,
+                        "count": 90
+                    },
+                    {
+                        "id": 226,
+                        "tagName": "数字化学习应用",
+                        "parentID": 219,
+                        "questionBankID": 1,
+                        "count": 47
+                    },
+                    {
+                        "id": 581,
+                        "tagName": "数字化学习特性",
+                        "parentID": 219,
+                        "questionBankID": 1,
+                        "count": 5
+                    },
+                    {
+                        "id": 1654,
+                        "tagName": "数字化学习与创新",
+                        "parentID": 219,
+                        "questionBankID": 1,
+                        "count": 0
+                    }
+                ],
+                "count": 1
+            },
+            {
+                "id": 227,
+                "tagName": "算法基础",
+                "parentID": 191,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 228,
+                        "tagName": "计算机解决问题的一般过程",
+                        "parentID": 227,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 1685,
+                                "tagName": "计算机解决问题的过程与特点",
+                                "parentID": 228,
+                                "questionBankID": 1,
+                                "count": 22
+                            }
+                        ],
+                        "count": 21
+                    },
+                    {
+                        "id": 230,
+                        "tagName": "算法描述与功能",
+                        "parentID": 227,
+                        "questionBankID": 1,
+                        "count": 102
+                    },
+                    {
+                        "id": 231,
+                        "tagName": "算法的概念",
+                        "parentID": 227,
+                        "questionBankID": 1,
+                        "count": 14
+                    },
+                    {
+                        "id": 232,
+                        "tagName": "算法的特征",
+                        "parentID": 227,
+                        "questionBankID": 1,
+                        "count": 31
+                    },
+                    {
+                        "id": 233,
+                        "tagName": "算法的基本结构",
+                        "parentID": 227,
+                        "questionBankID": 1,
+                        "count": 50
+                    },
+                    {
+                        "id": 234,
+                        "tagName": "算法的评价",
+                        "parentID": 227,
+                        "questionBankID": 1,
+                        "count": 2
+                    }
+                ],
+                "count": 12
+            },
+            {
+                "id": 237,
+                "tagName": "程序设计基础",
+                "parentID": 191,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 235,
+                        "tagName": "计算机程序和与程序设计语言",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 1655,
+                                "tagName": "几种程序设计语言的特点",
+                                "parentID": 235,
+                                "questionBankID": 1,
+                                "count": 6
+                            }
+                        ],
+                        "count": 18
+                    },
+                    {
+                        "id": 238,
+                        "tagName": "Python语言基础知识",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 239,
+                                "tagName": "Python语言特点",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 24
+                            },
+                            {
+                                "id": 242,
+                                "tagName": "数据类型",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 58
+                            },
+                            {
+                                "id": 243,
+                                "tagName": "运算符与表达式",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 199
+                            },
+                            {
+                                "id": 244,
+                                "tagName": "赋值语句",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 245,
+                                "tagName": "系统函数",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 5
+                            },
+                            {
+                                "id": 246,
+                                "tagName": "列表及其操作语句",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 2
+                            },
+                            {
+                                "id": 247,
+                                "tagName": "其他",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 42
+                            },
+                            {
+                                "id": 1686,
+                                "tagName": "常量",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1687,
+                                "tagName": "变量",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 8
+                            },
+                            {
+                                "id": 1690,
+                                "tagName": "列表及其操作语句",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 19
+                            },
+                            {
+                                "id": 1691,
+                                "tagName": "数据结构",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 4
+                            },
+                            {
+                                "id": 1710,
+                                "tagName": "赋值语句",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 3
+                            },
+                            {
+                                "id": 1711,
+                                "tagName": "系统函数",
+                                "parentID": 238,
+                                "questionBankID": 1,
+                                "count": 2
+                            }
+                        ],
+                        "count": 8
+                    },
+                    {
+                        "id": 249,
+                        "tagName": "运用顺序结构描述问题求解过程",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 250,
+                                "tagName": "顺序结构",
+                                "parentID": 249,
+                                "questionBankID": 1,
+                                "count": 17
+                            },
+                            {
+                                "id": 251,
+                                "tagName": "输入语句",
+                                "parentID": 249,
+                                "questionBankID": 1,
+                                "count": 15
+                            },
+                            {
+                                "id": 252,
+                                "tagName": "输出语句",
+                                "parentID": 249,
+                                "questionBankID": 1,
+                                "count": 20
+                            }
+                        ],
+                        "count": 2
+                    },
+                    {
+                        "id": 253,
+                        "tagName": "运用选择结构描述问题求解过程",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 254,
+                                "tagName": "单分支语句",
+                                "parentID": 253,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 255,
+                                "tagName": "双分支语句",
+                                "parentID": 253,
+                                "questionBankID": 1,
+                                "count": 3
+                            },
+                            {
+                                "id": 1658,
+                                "tagName": "多分支语句",
+                                "parentID": 253,
+                                "questionBankID": 1,
+                                "count": 3
+                            },
+                            {
+                                "id": 1659,
+                                "tagName": "if语句嵌套",
+                                "parentID": 253,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1704,
+                                "tagName": "单分支语句",
+                                "parentID": 253,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 1705,
+                                "tagName": "双分支语句",
+                                "parentID": 253,
+                                "questionBankID": 1,
+                                "count": 2
+                            }
+                        ],
+                        "count": 104
+                    },
+                    {
+                        "id": 258,
+                        "tagName": "运用循环结构描述问题求解过程",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 259,
+                                "tagName": "for循环",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 125
+                            },
+                            {
+                                "id": 260,
+                                "tagName": "用range()函数实现遍历",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 15
+                            },
+                            {
+                                "id": 261,
+                                "tagName": "用列表实现遍历",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 4
+                            },
+                            {
+                                "id": 262,
+                                "tagName": "while循环",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 92
+                            },
+                            {
+                                "id": 265,
+                                "tagName": "循环的嵌套",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 4
+                            },
+                            {
+                                "id": 1692,
+                                "tagName": "用range（）函数实现遍历",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1693,
+                                "tagName": "break语句",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1694,
+                                "tagName": "continue语句",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1695,
+                                "tagName": "循环的嵌套",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 1712,
+                                "tagName": "用列表实现遍历",
+                                "parentID": 258,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 17
+                    },
+                    {
+                        "id": 266,
+                        "tagName": "自定义函数及调用",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 1660,
+                                "tagName": "自定义函数的格式",
+                                "parentID": 266,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 1661,
+                                "tagName": "自定义函数的调用",
+                                "parentID": 266,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1662,
+                                "tagName": "发布代码、导入模块",
+                                "parentID": 266,
+                                "questionBankID": 1,
+                                "count": 1
+                            }
+                        ],
+                        "count": 26
+                    },
+                    {
+                        "id": 270,
+                        "tagName": "常见算法及其应用",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 272,
+                                "tagName": "枚举法",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 275,
+                                "tagName": "递归",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 276,
+                                "tagName": "迭代",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 3
+                            },
+                            {
+                                "id": 1663,
+                                "tagName": "解析法",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1665,
+                                "tagName": "分治策略",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 1666,
+                                "tagName": "二分查找",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 4
+                            },
+                            {
+                                "id": 1667,
+                                "tagName": "递归",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 10
+                            },
+                            {
+                                "id": 1668,
+                                "tagName": "迭代",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 1706,
+                                "tagName": "枚举法",
+                                "parentID": 270,
+                                "questionBankID": 1,
+                                "count": 10
+                            }
+                        ],
+                        "count": 1
+                    },
+                    {
+                        "id": 277,
+                        "tagName": "Python语言图形化界面开发",
+                        "parentID": 237,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 1669,
+                                "tagName": "GUI",
+                                "parentID": 277,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1670,
+                                "tagName": "pygame",
+                                "parentID": 277,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 0
+                    }
+                ],
+                "count": 95
+            },
+            {
+                "id": 295,
+                "tagName": "人工智能及其应用",
+                "parentID": 191,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 296,
+                        "tagName": "认识人工智能",
+                        "parentID": 295,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 297,
+                                "tagName": "人工智能的概念和分类",
+                                "parentID": 296,
+                                "questionBankID": 1,
+                                "count": 65
+                            },
+                            {
+                                "id": 298,
+                                "tagName": "人工智能的诞生和发展",
+                                "parentID": 296,
+                                "questionBankID": 1,
+                                "count": 14
+                            }
+                        ],
+                        "count": 2
+                    },
+                    {
+                        "id": 299,
+                        "tagName": "人工智能的技术和应用",
+                        "parentID": 295,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 300,
+                                "tagName": "机器学习",
+                                "parentID": 299,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 301,
+                                "tagName": "神经网络",
+                                "parentID": 299,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 302,
+                                "tagName": "搜索策略",
+                                "parentID": 299,
+                                "questionBankID": 1,
+                                "count": 13
+                            },
+                            {
+                                "id": 303,
+                                "tagName": "人工智能主要技术和应用",
+                                "parentID": 299,
+                                "questionBankID": 1,
+                                "count": 96
+                            },
+                            {
+                                "id": 304,
+                                "tagName": "人工智能产业领域应用",
+                                "parentID": 299,
+                                "questionBankID": 1,
+                                "count": 17
+                            }
+                        ],
+                        "count": 5
+                    }
+                ],
+                "count": 31
+            }
+        ],
+        "count": 4
+    },
+    {
+        "id": 305,
+        "tagName": "必修二 信息系统与社会",
+        "parentID": 0,
+        "questionBankID": 1,
+        "children": [
+            {
+                "id": 306,
+                "tagName": "走进信息社会",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 307,
+                        "tagName": "信息社会及其特征",
+                        "parentID": 306,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 308,
+                                "tagName": "信息社会",
+                                "parentID": 307,
+                                "questionBankID": 1,
+                                "count": 628
+                            },
+                            {
+                                "id": 309,
+                                "tagName": "信息社会的特征",
+                                "parentID": 307,
+                                "questionBankID": 1,
+                                "count": 32
+                            }
+                        ],
+                        "count": 620
+                    },
+                    {
+                        "id": 575,
+                        "tagName": "信息技术及其影响",
+                        "parentID": 306,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 310,
+                                "tagName": "信息技术发展脉络与趋势",
+                                "parentID": 575,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 311,
+                                        "tagName": "信息技术发展脉络",
+                                        "parentID": 310,
+                                        "questionBankID": 1,
+                                        "count": 1
+                                    },
+                                    {
+                                        "id": 1672,
+                                        "tagName": "信息技术发展趋势",
+                                        "parentID": 310,
+                                        "questionBankID": 1,
+                                        "count": 0
+                                    },
+                                    {
+                                        "id": 1707,
+                                        "tagName": "信息技术发展脉络",
+                                        "parentID": 310,
+                                        "questionBankID": 1,
+                                        "count": 1
+                                    }
+                                ],
+                                "count": 15
+                            },
+                            {
+                                "id": 313,
+                                "tagName": "信息技术的影响",
+                                "parentID": 575,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 1673,
+                                        "tagName": "信息技术推动科技革新与进步",
+                                        "parentID": 313,
+                                        "questionBankID": 1,
+                                        "count": 0
+                                    },
+                                    {
+                                        "id": 1674,
+                                        "tagName": "信息技术促进社会变革与发展",
+                                        "parentID": 313,
+                                        "questionBankID": 1,
+                                        "count": 0
+                                    },
+                                    {
+                                        "id": 1675,
+                                        "tagName": "信息技术提升人们在信息社会的适应力与创造力",
+                                        "parentID": 313,
+                                        "questionBankID": 1,
+                                        "count": 0
+                                    }
+                                ],
+                                "count": 20
+                            },
+                            {
+                                "id": 576,
+                                "tagName": "常见信息技术",
+                                "parentID": 575,
+                                "questionBankID": 1,
+                                "count": 3
+                            }
+                        ],
+                        "count": 4
+                    }
+                ],
+                "count": 0
+            },
+            {
+                "id": 317,
+                "tagName": "信息系统",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 318,
+                        "tagName": "信息系统概念、组成与功能",
+                        "parentID": 317,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 1676,
+                                "tagName": "信息系统的组成",
+                                "parentID": 318,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 98
+                    },
+                    {
+                        "id": 321,
+                        "tagName": "信息系统的分类",
+                        "parentID": 317,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 320,
+                                "tagName": "复杂度分类",
+                                "parentID": 321,
+                                "questionBankID": 1,
+                                "count": 15
+                            },
+                            {
+                                "id": 582,
+                                "tagName": "功能分类",
+                                "parentID": 321,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 323,
+                                        "tagName": "事务处理系统(TPS)",
+                                        "parentID": 582,
+                                        "questionBankID": 1,
+                                        "count": 4
+                                    },
+                                    {
+                                        "id": 324,
+                                        "tagName": "管理信息系统(MIS)",
+                                        "parentID": 582,
+                                        "questionBankID": 1,
+                                        "count": 6
+                                    },
+                                    {
+                                        "id": 325,
+                                        "tagName": "决策支持系统(DSS)",
+                                        "parentID": 582,
+                                        "questionBankID": 1,
+                                        "count": 3
+                                    },
+                                    {
+                                        "id": 326,
+                                        "tagName": "专家系统(ES)",
+                                        "parentID": 582,
+                                        "questionBankID": 1,
+                                        "count": 10
+                                    }
+                                ],
+                                "count": 1
+                            },
+                            {
+                                "id": 1677,
+                                "tagName": "输入、处理、存储、控制、传输与输出",
+                                "parentID": 321,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 4
+                    },
+                    {
+                        "id": 353,
+                        "tagName": "信息系统的工作过程",
+                        "parentID": 317,
+                        "questionBankID": 1,
+                        "count": 5
+                    },
+                    {
+                        "id": 359,
+                        "tagName": "信息系统在社会应用中的优势及局限性",
+                        "parentID": 317,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 360,
+                                "tagName": "信息系统的优势",
+                                "parentID": 359,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 361,
+                                "tagName": "信息系统的局限性",
+                                "parentID": 359,
+                                "questionBankID": 1,
+                                "count": 1
+                            },
+                            {
+                                "id": 1708,
+                                "tagName": "信息系统的优势",
+                                "parentID": 359,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1709,
+                                "tagName": "信息系统的局限性",
+                                "parentID": 359,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 7
+                    },
+                    {
+                        "id": 583,
+                        "tagName": "信息系统应用",
+                        "parentID": 317,
+                        "questionBankID": 1,
+                        "count": 11
+                    }
+                ],
+                "count": 67
+            },
+            {
+                "id": 327,
+                "tagName": "计算机系统与移动终端",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 328,
+                        "tagName": "计算机和移动终端的作用",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 0
+                    },
+                    {
+                        "id": 329,
+                        "tagName": "计算机的发展历程",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 3
+                    },
+                    {
+                        "id": 330,
+                        "tagName": "计算机工作的基本原理",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 3
+                    },
+                    {
+                        "id": 331,
+                        "tagName": "计算机的系统架构",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 40
+                    },
+                    {
+                        "id": 332,
+                        "tagName": "计算机的主要性能指标",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 18
+                    },
+                    {
+                        "id": 333,
+                        "tagName": "移动终端的硬件和软件",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 83
+                    },
+                    {
+                        "id": 1680,
+                        "tagName": "计算机系统和移动终端的作用",
+                        "parentID": 327,
+                        "questionBankID": 1,
+                        "count": 0
+                    }
+                ],
+                "count": 4
+            },
+            {
+                "id": 336,
+                "tagName": "信息系统的网络",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 334,
+                        "tagName": "移动互联网",
+                        "parentID": 336,
+                        "questionBankID": 1,
+                        "count": 5
+                    },
+                    {
+                        "id": 337,
+                        "tagName": "物联网",
+                        "parentID": 336,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 339,
+                                "tagName": "物联网的概念和特征",
+                                "parentID": 337,
+                                "questionBankID": 1,
+                                "count": 34
+                            },
+                            {
+                                "id": 340,
+                                "tagName": "物联网的结构",
+                                "parentID": 337,
+                                "questionBankID": 1,
+                                "count": 34
+                            },
+                            {
+                                "id": 341,
+                                "tagName": "物联网的技术",
+                                "parentID": 337,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 585,
+                                        "tagName": "RFID技术",
+                                        "parentID": 341,
+                                        "questionBankID": 1,
+                                        "count": 15
+                                    },
+                                    {
+                                        "id": 586,
+                                        "tagName": "传感器技术",
+                                        "parentID": 341,
+                                        "questionBankID": 1,
+                                        "count": 71
+                                    },
+                                    {
+                                        "id": 587,
+                                        "tagName": "条码技术",
+                                        "parentID": 341,
+                                        "questionBankID": 1,
+                                        "count": 15
+                                    },
+                                    {
+                                        "id": 588,
+                                        "tagName": "传输技术",
+                                        "parentID": 341,
+                                        "questionBankID": 1,
+                                        "count": 0
+                                    },
+                                    {
+                                        "id": 589,
+                                        "tagName": "其它技术",
+                                        "parentID": 341,
+                                        "questionBankID": 1,
+                                        "count": 0
+                                    }
+                                ],
+                                "count": 27
+                            },
+                            {
+                                "id": 590,
+                                "tagName": "物联网应用场景",
+                                "parentID": 337,
+                                "questionBankID": 1,
+                                "count": 17
+                            },
+                            {
+                                "id": 1681,
+                                "tagName": "信息系统与外部世界链接方式的演变",
+                                "parentID": 337,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 123
+                    },
+                    {
+                        "id": 342,
+                        "tagName": "计算机网络",
+                        "parentID": 336,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 343,
+                                "tagName": "网络的结构与分类",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "count": 25
+                            },
+                            {
+                                "id": 345,
+                                "tagName": "网络协议",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "count": 57
+                            },
+                            {
+                                "id": 346,
+                                "tagName": "数据传输",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "count": 22
+                            },
+                            {
+                                "id": 574,
+                                "tagName": "网络概念与功能",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "count": 44
+                            },
+                            {
+                                "id": 584,
+                                "tagName": "网络设备与介质",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "children": [
+                                    {
+                                        "id": 344,
+                                        "tagName": "传输介质",
+                                        "parentID": 584,
+                                        "questionBankID": 1,
+                                        "count": 16
+                                    },
+                                    {
+                                        "id": 350,
+                                        "tagName": "网络设备",
+                                        "parentID": 584,
+                                        "questionBankID": 1,
+                                        "count": 52
+                                    }
+                                ],
+                                "count": 30
+                            },
+                            {
+                                "id": 1682,
+                                "tagName": "IP地址",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "count": 0
+                            },
+                            {
+                                "id": 1683,
+                                "tagName": "网络服务",
+                                "parentID": 342,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 27
+                    },
+                    {
+                        "id": 348,
+                        "tagName": "组建小型无线网络",
+                        "parentID": 336,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 349,
+                                "tagName": "无线网络的接入方式",
+                                "parentID": 348,
+                                "questionBankID": 1,
+                                "count": 54
+                            },
+                            {
+                                "id": 351,
+                                "tagName": "无线网络的组建与配置",
+                                "parentID": 348,
+                                "questionBankID": 1,
+                                "count": 13
+                            }
+                        ],
+                        "count": 4
+                    }
+                ],
+                "count": 3
+            },
+            {
+                "id": 352,
+                "tagName": "信息系统的软件与应用",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 356,
+                        "tagName": "信息系统的软件及其作用",
+                        "parentID": 352,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 357,
+                                "tagName": "软件分类",
+                                "parentID": 356,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 0
+                    }
+                ],
+                "count": 0
+            },
+            {
+                "id": 362,
+                "tagName": "信息系统的安全风险防范",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 363,
+                        "tagName": "信息系统应用中的安全风险",
+                        "parentID": 362,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 364,
+                                "tagName": "人为因素造成的信息安全风险",
+                                "parentID": 363,
+                                "questionBankID": 1,
+                                "count": 5
+                            },
+                            {
+                                "id": 365,
+                                "tagName": "软硬件因素造成的信息安全风险",
+                                "parentID": 363,
+                                "questionBankID": 1,
+                                "count": 2
+                            },
+                            {
+                                "id": 366,
+                                "tagName": "网络因素造成的信息安全风险",
+                                "parentID": 363,
+                                "questionBankID": 1,
+                                "count": 6
+                            },
+                            {
+                                "id": 367,
+                                "tagName": "数据因素造成的信息安全风险",
+                                "parentID": 363,
+                                "questionBankID": 1,
+                                "count": 3
+                            }
+                        ],
+                        "count": 8
+                    },
+                    {
+                        "id": 368,
+                        "tagName": "信息系统安全风险防范的技术和方法",
+                        "parentID": 362,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 369,
+                                "tagName": "信息系统安全风险的重要术语",
+                                "parentID": 368,
+                                "questionBankID": 1,
+                                "count": 42
+                            },
+                            {
+                                "id": 371,
+                                "tagName": "信息系统安全策略",
+                                "parentID": 368,
+                                "questionBankID": 1,
+                                "count": 8
+                            },
+                            {
+                                "id": 372,
+                                "tagName": "信息系统安全风险防范的常用技术",
+                                "parentID": 368,
+                                "questionBankID": 1,
+                                "count": 108
+                            },
+                            {
+                                "id": 1684,
+                                "tagName": "P2DR安全模型",
+                                "parentID": 368,
+                                "questionBankID": 1,
+                                "count": 0
+                            }
+                        ],
+                        "count": 7
+                    },
+                    {
+                        "id": 373,
+                        "tagName": "合理使用信息系统",
+                        "parentID": 362,
+                        "questionBankID": 1,
+                        "children": [
+                            {
+                                "id": 374,
+                                "tagName": "树立信息安全意识",
+                                "parentID": 373,
+                                "questionBankID": 1,
+                                "count": 44
+                            },
+                            {
+                                "id": 375,
+                                "tagName": "信息系统安全操作规范",
+                                "parentID": 373,
+                                "questionBankID": 1,
+                                "count": 12
+                            },
+                            {
+                                "id": 376,
+                                "tagName": "信息社会的道德准则与法律法规",
+                                "parentID": 373,
+                                "questionBankID": 1,
+                                "count": 10
+                            }
+                        ],
+                        "count": 32
+                    }
+                ],
+                "count": 56
+            },
+            {
+                "id": 591,
+                "tagName": "信息系统的开发",
+                "parentID": 305,
+                "questionBankID": 1,
+                "children": [
+                    {
+                        "id": 354,
+                        "tagName": "C/S、B/S模式",
+                        "parentID": 591,
+                        "questionBankID": 1,
+                        "count": 8
+                    },
+                    {
+                        "id": 355,
+                        "tagName": "信息系统的开发过程",
+                        "parentID": 591,
+                        "questionBankID": 1,
+                        "count": 6
+                    },
+                    {
+                        "id": 358,
+                        "tagName": "数据库",
+                        "parentID": 591,
+                        "questionBankID": 1,
+                        "count": 149
+                    }
+                ],
+                "count": 1
+            }
+        ],
+        "count": 1
+    },
+    {
+        "id": 1436,
+        "tagName": "未分类",
+        "parentID": 0,
+        "questionBankID": 1,
+        "children": [
+            {
+                "id": 1437,
+                "tagName": "未分类1",
+                "parentID": 1436,
+                "questionBankID": 1,
+                "count": 180
+            }
+        ],
+        "count": 18
+    }
+]

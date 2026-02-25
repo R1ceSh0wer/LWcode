@@ -1,0 +1,130 @@
+
+###阶段1: Word2Vec模型生成 (generate_word2vec.py)
+    控制台指令：python generate_word2vec.py
+    所需文件名：data/net_knowledge_train.json（仅使用其中的text字段，按题目分词）
+    格式：
+[
+  {
+    "exer_id": "t1",
+    "knowledge_code": [319],
+    "text": ["已知", "等差数列", "a", "_", "n", "的", "前", "n", "项", "和", ...]
+  },
+  {
+    "exer_id": "t2",
+    "knowledge_code": [289],
+    "text": ["已", "cos", "θ", "=", "frac", "NUM", "NUM", "则", ...]
+  }
+]
+    输出文件：result/word2vec.model
+
+
+
+###阶段2: 知识点预测模型训练 (net_knowledge.py)
+    控制台指令：python net_knowledge.py
+    所需文件名：
+    1.同1（训练集）
+    2.data/net_knowledge_pred.json（测试集）
+    格式：
+[
+  {
+    "exer_id": 1,
+    "knowledge_code": [208],
+    "text": ["等差数列", "a", "_", "n", "中", "a", "_", "NUM", "=", "NUM", ...]
+  },
+  {
+    "exer_id": 2,
+    "knowledge_code": [201, 203],
+    "text": ["若", "x", "|", "x", "^", "NUM", "≤", "a", "a", "∈", "R", ...]
+  }
+]
+
+    输出文件：result/word2vec.model
+            result/netknowledge_test.txt（epoch的测试结果）
+            data/word2id.FastRBTree（pickle序列化的FastRBTree对象）
+            data/word_emb_100（pickle序列化的numpy数组）
+            netknowledge/model_epoch1 ~ netknowledge/model_epoch30（模型训练检查点）
+            data/netknowledge_pred_topk_knowledge_pairs.FastRBTree（pickle序列化的FastRBTree对象）
+
+
+
+###阶段3: NeuralCDM+模型训练与测试 (main.py)
+    控制台指令：python main.py
+    所需文件名：
+    1，data/train_set.json
+    格式：
+[
+  {
+    "user_id": 1,
+    "exer_id": 2,
+    "score": 0.0,
+    "knowledge_code": [1, 2, 4]
+  },
+  {
+    "user_id": 2,
+    "exer_id": 1,
+    "score": 1.0,
+    "knowledge_code": [2, 3]
+  }
+]
+
+    2.data/val_set.json
+    格式：
+[
+  {
+    "user_id": 1,
+    "log_num": 4,
+    "logs": [
+      {
+        "exer_id": 1,
+        "score": 1.0,
+        "knowledge_code": [2, 3]
+      },
+      {
+        "exer_id": 3,
+        "score": 1.0,
+        "knowledge_code": [460, 462]
+      }
+    ]
+  },
+  {
+    "user_id": 2,
+    "log_num": 3,
+    "logs": [...]
+  }
+]
+
+     3.data/test_set.json（格式同val_set.json,用于作为测试集）
+
+     4.data/word2id.FastRBTree
+
+     5.data/netknowledge_pred_topk_knowledge_pairs.FastRBTree
+
+    输出文件：
+     1.model/model_epoch0 ~ model/model_epoch29（模型检查点）
+     2.result/model_val.txt（模型epoch评估结果）
+     3.result/model_test.txt（测试集评估结果）
+
+
+
+
+
+真正使用时，采用预训练+卷积更新的方式保持模型适应新题目
+需要数据：试题文本，学生作答情况，知识点编码
+assistment和math缺少试题文本，玄高数据可用
+
+预计向智能体输出：
+{
+"student_name": 小明,
+"average_prediction": 0.625,
+"accuracy": 0.5,
+"knowledge_mastery": {
+"1": {"predicted_mastery": 0.75, "actual_mastery": 1.0, "performance_gap": -0.25},
+"3": {"predicted_mastery": 0.5, "actual_mastery": 0.0, "performance_gap": 0.5}
+},
+"strengths": [1],
+"weaknesses": [3]
+}
+
+其中，student_name指学生姓名，average_prediction指平均预测概率，表示对学生整体表现的预测水平（0-1之间），accuracy指预测准确率，指模型预测与实际表现的一致性，
+knowledge_mastery指知识点掌握程度分析，包含三个子字段，即predicted_mastery：预测的掌握程度（模型预测概率的平均值），actual_mastery：实际掌握程度（实际答题正确率），performance_gap：表现差距（预测减去实际）
+strengths为优势知识点列表，weaknesses为薄弱知识点列表。
