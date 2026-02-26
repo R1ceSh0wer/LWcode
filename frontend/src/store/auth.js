@@ -34,6 +34,10 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (error) {
       console.error('Login error:', error)
+      // 处理axios错误，提取后端返回的错误信息
+      if (error.response && error.response.data && error.response.data.message) {
+        return { success: false, message: error.response.data.message }
+      }
       return { success: false, message: '登录失败，请检查网络连接' }
     }
   }

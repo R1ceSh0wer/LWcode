@@ -260,9 +260,9 @@
       <!-- 智能问答区域 -->
       <div 
         v-if="activeSection === 'smart-qa'" 
-        class="section-container"
+        class="section-container smart-qa-section"
       >
-        <div class="section-header">
+        <div class="section-header smart-qa-header">
           <h2>智能问答</h2>
           <p class="section-description">向AI提问，获取学习帮助</p>
         </div>
@@ -324,17 +324,21 @@
           <!-- 聊天界面 -->
           <div class="chat-interface">
             <!-- 聊天消息 -->
-            <div class="chat-messages">
+            <div class="chat-messages" ref="chatMessagesRef">
               <div 
                 v-for="message in chatHistory" 
                 :key="message.id"
-                :class="['message', message.role]"
+                :class="['message-wrapper', message.role]"
               >
-                <div class="message-name">{{ message.name }}</div>
-                <div class="message-content">{{ message.content }}</div>
+                <div :class="['message', message.role]">
+                  <div class="message-content">{{ message.content }}</div>
+                  <div v-if="message.role === 'user'" class="message-name">{{ message.name }}</div>
+                </div>
               </div>
-              <div v-if="isLoading" class="message assistant">
-                <div class="message-content loading">AI正在思考...</div>
+              <div v-if="isLoading" class="message-wrapper assistant">
+                <div class="message assistant">
+                  <div class="message-content loading">AI正在思考...</div>
+                </div>
               </div>
             </div>
             
@@ -1141,10 +1145,22 @@ onMounted(async () => {
 }
 
 /* 智能问答容器样式 */
-.smart-qa-container {
+.smart-qa-section {
   display: flex;
-  width: 100%;
-  min-height: 700px;
+  flex-direction: column;
+  height: calc(100vh - 100px);
+  min-height: 600px;
+  overflow: hidden;
+}
+
+.smart-qa-header {
+  flex-shrink: 0;
+}
+
+.smart-qa-container {
+  flex: 1;
+  display: flex;
+  min-height: 0;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -1154,6 +1170,7 @@ onMounted(async () => {
 /* 会话列表样式 */
 .conversation-list {
   width: 240px;
+  flex-shrink: 0;
   border-right: 1px solid #eee;
   overflow-y: auto;
   background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
@@ -1298,6 +1315,7 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   background-color: #f8f9fa;
 }
@@ -1307,18 +1325,32 @@ onMounted(async () => {
   padding: 20px;
   overflow-y: auto;
   background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+  min-height: 0;
 }
 
-/* 消息动画 */
+/* 消息外层容器 */
+.message-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+}
+
+.message-wrapper.user {
+  justify-content: flex-end;
+}
+
+.message-wrapper.assistant {
+  justify-content: flex-start;
+}
+
+/* 消息内层容器 */
 .message {
-  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
   max-width: 80%;
-  min-width: 80px; /* 设置最小宽度，避免过于窄小 */
+  min-width: 80px;
   opacity: 0;
   transform: translateY(10px);
   animation: messageFadeIn 0.3s ease forwards;
-  word-wrap: break-word; /* 确保长单词能自动换行 */
-  display: flex; /* 使用flex布局确保正确对齐 */
 }
 
 @keyframes messageFadeIn {
@@ -1328,28 +1360,23 @@ onMounted(async () => {
   }
 }
 
-.message.user {
-  justify-content: flex-end; /* 右对齐用户消息 */
-  margin-left: auto; /* 将消息推到右侧 */
+.message-wrapper.user .message {
+  align-items: flex-end;
   animation-delay: 0.1s;
 }
 
-.message.assistant {
-  justify-content: flex-start; /* 左对齐AI消息 */
-  margin-right: auto; /* 将消息推到左侧 */
+.message-wrapper.assistant .message {
+  align-items: flex-start;
   animation-delay: 0.2s;
 }
 
-/* 调整消息内容容器 */
-.message .message-content {
-  max-width: 100%; /* 确保消息内容不会超过消息容器 */
-}
-
+/* 消息内容 */
 .message-content {
   padding: 12px 16px;
   border-radius: 18px;
   font-size: 14px;
   line-height: 1.5;
+  word-wrap: break-word;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -1359,33 +1386,35 @@ onMounted(async () => {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
-.message.user .message-content {
-  background-color: #667eea;
+.message-wrapper.user .message-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
   border-bottom-right-radius: 5px;
 }
 
-.message.assistant .message-content {
-  background-color: #fff;
+.message-wrapper.assistant .message-content {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   color: #333;
-  border: 1px solid #e0e0e0;
+  border: none;
   border-bottom-left-radius: 5px;
 }
 
-/* 消息名称样式 */
+/* 消息名称样式 - 显示在消息下方 */
 .message-name {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
-  margin-bottom: 4px;
+  margin-top: 4px;
   font-weight: 500;
 }
 
-.message.user .message-name {
-  color: rgba(255, 255, 255, 0.8);
+.message-wrapper.user .message-name {
+  color: #667eea;
+  text-align: right;
 }
 
-.message.assistant .message-name {
-  color: #667eea;
+.message-wrapper.assistant .message-name {
+  color: #764ba2;
+  text-align: left;
 }
 
 .message-content.loading {
@@ -1412,34 +1441,9 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* 消息美化增强 */
-.message-content {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-  padding: 14px 18px;
-  border-radius: 20px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
-}
-
-/* 用户消息美化 */
-.message.user .message-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  border-bottom-right-radius: 6px;
-}
-
-/* AI消息美化 */
-.message.assistant .message-content {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  color: #333;
-  border: none;
-  border-bottom-left-radius: 6px;
-}
-
 /* 输入区域样式 */
 .input-area {
+  flex-shrink: 0;
   padding: 20px;
   border-top: 1px solid #eee;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);

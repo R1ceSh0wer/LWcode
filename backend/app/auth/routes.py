@@ -15,7 +15,7 @@ def login():
         
         if user and user.password == password:
             if selected_role and user.role != selected_role:
-                return jsonify({'success': False, 'message': '选择角色与注册时不一致'}), 401
+                return jsonify({'success': False, 'message': '请选择正确身份'}), 401
             
             return jsonify({
                 'success': True,
