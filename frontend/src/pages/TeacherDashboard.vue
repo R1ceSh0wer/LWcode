@@ -37,6 +37,73 @@
         <button @click="confirmDelete" class="submit-button delete-button">确认删除</button>
       </div>
     </SimpleModal>
+
+    <!-- 批量生成评语模态框 -->
+    <SimpleModal 
+      :isVisible="isBatchCommentModalVisible" 
+      title="批量生成评语"
+      @close="closeBatchCommentModal"
+    >
+      <!-- 导航箭头 -->
+      <div class="batch-navigation">
+        <button 
+          @click="navigateBatchModal(-1)" 
+          class="nav-button" 
+          :disabled="currentBatchIndex === 0"
+        >
+          ← 上一个
+        </button>
+        <span class="batch-progress">{{ currentBatchIndex + 1 }} / {{ batchStudents.length }}</span>
+        <button 
+          @click="navigateBatchModal(1)" 
+          class="nav-button" 
+          :disabled="currentBatchIndex === batchStudents.length - 1"
+        >
+          下一个 →
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div v-if="currentBatchStudent" class="batch-student-info">
+          <h4>{{ currentBatchStudent.name }} ({{ currentBatchStudent.studentId }})</h4>
+          <p>班级: {{ currentBatchStudent.className }}</p>
+        </div>
+        
+        <!-- 附加评语输入 -->
+        <div class="form-group">
+          <label class="form-label">附加评语（选填）</label>
+          <textarea 
+            v-model="batchAdditionComments[currentBatchIndex]" 
+            placeholder="请输入附加评语（可选）"
+            class="form-textarea"
+            rows="4"
+          ></textarea>
+        </div>
+        
+        <!-- 图片上传 -->
+        <div class="form-group">
+          <label class="form-label">上传答案图片（最多6张）</label>
+          <ImageUpload 
+            ref="batchImageUploads" 
+            :key="batchImageUploadKey"
+            :max-files="6"
+            :accepted-formats="['image/jpeg', 'image/png', 'image/jpg']"
+          />
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button @click="closeBatchCommentModal" class="cancel-button">取消</button>
+        <button 
+          @click="generateBatchComments" 
+          class="submit-button"
+          :disabled="isBatchGenerating"
+        >
+          {{ isBatchGenerating ? '生成中...' : '生成评语' }}
+        </button>
+      </div>
+    </SimpleModal>
+
     <!-- 顶部导航栏 -->
     <nav class="top-navigation">
       <div class="nav-left">
@@ -63,6 +130,12 @@
           >
             学习资源推荐
           </button>
+          <button 
+            :class="['nav-button', { active: activeTab === 'model-archives' }]"
+            @click="switchTab('model-archives')"
+          >
+            模型存档管理
+          </button>
         </div>
       </div>
       <div class="nav-right">
@@ -83,6 +156,13 @@
         <div class="page-header">
           <h2>学生评语管理</h2>
           <div class="header-actions">
+            <button 
+              @click="handleBatchGenerate" 
+              class="batch-generate-button"
+              :disabled="!selectedColumnId || selectedStudents.length === 0"
+            >
+              📋 批量生成评语
+            </button>
             <button @click="isColumnModalVisible = true" class="create-column-button">
               📋 创建专栏
             </button>
@@ -152,6 +232,14 @@
           <table class="students-table">
             <thead>
               <tr>
+                <th width="40">
+                  <input 
+                    type="checkbox" 
+                    v-model="selectAllStudents" 
+                    @change="handleSelectAll"
+                    class="select-all-checkbox"
+                  >
+                </th>
                 <th>学生信息</th>
                 <th>班级</th>
                 <th>专栏</th>
@@ -165,6 +253,14 @@
                 :key="student.id"
                 class="student-row"
               >
+                <td>
+                  <input 
+                    type="checkbox" 
+                    v-model="selectedStudents" 
+                    :value="student.id" 
+                    class="student-checkbox"
+                  >
+                </td>
                 <td class="student-info">
                   <div class="student-avatar">{{ student.name.charAt(0) }}</div>
                   <div class="student-details">
@@ -343,6 +439,280 @@
         <h2>学习资源推荐</h2>
         <p>学习资源推荐功能界面（内容待定）</p>
       </div>
+      
+      <!-- 模型存档管理界面 -->
+      <div v-else-if="activeTab === 'model-archives'" class="model-archives-interface">
+        <!-- 页面标题和操作区 -->
+        <div class="page-header">
+          <h2>模型存档管理</h2>
+          <div class="header-actions">
+            <button @click="showCreateArchiveModal = true" class="create-archive-button">
+              ➕ 创建新存档
+            </button>
+          </div>
+        </div>
+
+        <!-- 存档列表 -->
+        <div class="archives-list">
+          <div v-if="modelArchives.length === 0" class="empty-state">
+            <p>暂无存档，请创建新存档</p>
+          </div>
+          
+          <div 
+            v-for="archive in modelArchives" 
+            :key="archive.id" 
+            class="archive-card"
+            :class="{ 'training': archive.status === 'training' }"
+          >
+            <div class="archive-header">
+              <h3>{{ archive.name }}</h3>
+              <span :class="['status-badge', archive.status]">
+                {{ getStatusText(archive.status) }}
+              </span>
+            </div>
+            
+            <div class="archive-info">
+              <div class="info-item">
+                <span class="label">创建时间:</span>
+                <span class="value">{{ archive.created_at }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">词嵌入模型:</span>
+                <span :class="['value', archive.has_word_emb ? 'success' : '']">
+                  {{ archive.has_word_emb ? '✓ 已生成' : '未生成' }}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="label">诊断模型:</span>
+                <span :class="['value', archive.has_diagnosis_model ? 'success' : '']">
+                  {{ archive.has_diagnosis_model ? '✓ 已生成' : '未生成' }}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="label">知识点映射:</span>
+                <span :class="['value', archive.has_knowledge_mapping ? 'success' : '']">
+                  {{ archive.has_knowledge_mapping ? '✓ 已上传' : '未上传' }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="archive-actions">
+              <button 
+                v-if="archive.status === 'pending'" 
+                @click="showUploadModal(archive)" 
+                class="action-button upload"
+              >
+                📤 上传数据并训练
+              </button>
+              <button 
+                v-if="archive.status === 'completed'" 
+                @click="showArchiveDetail(archive)" 
+                class="action-button view"
+              >
+                👁️ 查看详情
+              </button>
+              <button 
+                v-if="archive.status === 'training'" 
+                disabled 
+                class="action-button training"
+              >
+                ⏳ 训练中...
+              </button>
+              <button 
+                v-if="archive.status !== 'training'" 
+                @click="confirmDeleteArchive(archive)" 
+                class="action-button delete"
+              >
+                🗑️ 删除
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 创建存档模态框 -->
+        <div v-if="showCreateArchiveModal" class="modal-overlay" @click.self="showCreateArchiveModal = false">
+          <div class="modal-content create-archive-modal">
+            <h3>创建新存档</h3>
+            
+            <!-- 存档名称 -->
+            <div class="form-group">
+              <label>存档名称：</label>
+              <input 
+                v-model="newArchiveName" 
+                type="text" 
+                placeholder="请输入存档名称（如：2024 届模型）"
+                class="form-input"
+              />
+            </div>
+            
+            <!-- 选项卡切换 -->
+            <div class="create-mode-tabs">
+              <button 
+                :class="['tab-button', { active: createMode === 'existing' }]"
+                @click="createMode = 'existing'"
+              >
+                选择已有模型
+              </button>
+              <button 
+                :class="['tab-button', { active: createMode === 'train' }]"
+                @click="createMode = 'train'"
+              >
+                上传训练文件
+              </button>
+            </div>
+            
+            <!-- 选项卡内容 -->
+            <div class="tab-content">
+              <!-- 选择已有模型 -->
+              <div v-if="createMode === 'existing'" class="existing-model-section">
+                <div class="form-group">
+                  <label>知识点推理模型：</label>
+                  <input 
+                    type="file" 
+                    @change="handleWord2VecModelChange" 
+                    class="file-input-visible"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>认知诊断模型：</label>
+                  <input 
+                    type="file" 
+                    @change="handleDiagnosisModelChange" 
+                    class="file-input-visible"
+                  />
+                  <p class="hint">请选择模型文件</p>
+                </div>
+                <div class="form-group">
+                  <label>知识点对照表：</label>
+                  <input 
+                    type="file" 
+                    @change="handleKnowledgeMappingFileChange" 
+                    class="file-input-visible"
+                  />
+                </div>
+              </div>
+              
+              <!-- 上传训练文件 -->
+              <div v-if="createMode === 'train'" class="train-model-section">
+                <div class="form-group">
+                  <label>知识点对照表：</label>
+                  <input 
+                    type="file" 
+                    @change="handleKnowledgeMappingFileChange" 
+                    class="file-input-visible"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>训练数据文件：</label>
+                  <input 
+                    type="file" 
+                    @change="handleTrainDataFilesChange" 
+                    multiple
+                    class="file-input-visible"
+                  />
+                  <p class="hint">请上传包含学生答题记录的训练数据文件</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="modal-footer">
+              <button @click="showCreateArchiveModal = false" class="cancel-button">取消</button>
+              <button @click="handleCreateArchive" class="submit-button">创建</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 上传数据模态框 -->
+        <div v-if="showUploadModalFlag" class="modal-overlay" @click.self="showUploadModalFlag = false">
+          <div class="modal-content upload-modal">
+            <h3>上传训练数据 - {{ currentArchive?.name }}</h3>
+            <div class="upload-section">
+              <div class="form-group">
+                <label>知识点映射文件 (knowledge_mapping.txt)：</label>
+                <input 
+                  type="file" 
+                  @change="handleKnowledgeMappingChange" 
+                  accept=".txt"
+                  class="file-input"
+                />
+              </div>
+              
+              <div class="form-group">
+                <label>训练数据文件 (JSON 格式)：</label>
+                <input 
+                  type="file" 
+                  @change="handleDataFilesChange" 
+                  accept=".json"
+                  multiple
+                  class="file-input"
+                />
+                <p class="hint">可多选，支持 train_*.json, val_*.json, test_*.json 等格式</p>
+              </div>
+              
+              <div v-if="uploadProgress > 0" class="progress-bar">
+                <div class="progress" :style="{ width: uploadProgress + '%' }"></div>
+                <span class="progress-text">{{ uploadProgress }}%</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button @click="showUploadModalFlag = false" class="cancel-button">取消</button>
+              <button @click="handleUploadFiles" class="submit-button" :disabled="isUploading">
+                {{ isUploading ? '上传中...' : '开始训练' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 存档详情模态框 -->
+        <div v-if="showDetailModal" class="modal-overlay" @click.self="showDetailModal = false">
+          <div class="modal-content detail-modal">
+            <h3>存档详情 - {{ currentArchive?.name }}</h3>
+            <div class="detail-content">
+              <div class="info-row">
+                <span class="label">状态：</span>
+                <span :class="['status-badge', currentArchive?.status]">
+                  {{ getStatusText(currentArchive?.status) }}
+                </span>
+              </div>
+              <div class="info-row">
+                <span class="label">创建时间：</span>
+                <span>{{ currentArchive?.created_at }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">词嵌入模型：</span>
+                <span>{{ currentArchive?.word_emb_path || '未生成' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">诊断模型：</span>
+                <span>{{ currentArchive?.diagnosis_model_path || '未生成' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">知识点映射：</span>
+                <span>{{ currentArchive?.knowledge_mapping_path || '未上传' }}</span>
+              </div>
+              <div v-if="currentArchive?.training_log" class="training-log">
+                <h4>训练日志：</h4>
+                <pre>{{ currentArchive.training_log }}</pre>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button @click="showDetailModal = false" class="cancel-button">关闭</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 确认删除模态框 -->
+        <div v-if="showDeleteArchiveConfirm" class="modal-overlay" @click.self="showDeleteArchiveConfirm = false">
+          <div class="modal-content">
+            <h3>确认删除</h3>
+            <p>确定要删除存档 "{{ archiveToDelete?.name }}" 吗？此操作不可恢复。</p>
+            <div class="modal-footer">
+              <button @click="showDeleteArchiveConfirm = false" class="cancel-button">取消</button>
+              <button @click="handleDeleteArchive" class="submit-button delete-button">确认删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- 创建专栏模态框 -->
@@ -364,17 +734,37 @@
           </div>
           
           <div class="form-group">
+            <label class="form-label">选择模型存档 <span class="required">*</span></label>
+            <select v-model="newColumn.archiveId" class="form-input">
+              <option value="">请选择存档</option>
+              <option 
+                v-for="archive in completedArchives" 
+                :key="archive.id" 
+                :value="archive.id"
+              >
+                {{ archive.name }} ({{ archive.status }})
+              </option>
+            </select>
+            <p class="form-hint">请选择已训练完成的模型存档</p>
+          </div>
+          
+          <div class="form-group">
             <label class="form-label">上传试题图片</label>
             <ImageUpload ref="columnImageUpload" />
           </div>
         </div>
         
         <div class="modal-footer">
-          <button @click="closeColumnModal" class="cancel-button">取消</button>
+          <button @click="closeColumnModal" class="cancel-button" :disabled="isCreatingColumn">取消</button>
+          <div class="submit-container" v-if="isCreatingColumn">
+            <div class="loading-spinner"></div>
+            <span>创建中，请稍候...</span>
+          </div>
           <button 
+            v-else
             @click="createColumn"
             class="submit-button"
-            :disabled="!newColumn.name"
+            :disabled="!newColumn.name || !newColumn.archiveId"
           >
             创建专栏
           </button>
@@ -761,6 +1151,7 @@ import { getColumns, addColumn, deleteColumn } from '../api/columns';
 import { generateComment as apiGenerateComment, getStudentComments, createComment as apiCreateComment, deleteComment as apiDeleteComment } from '../api/comments';
 import { uploadImage } from '../api/images';
 import { getAccounts, addAccount as apiAddAccount, deleteAccount as apiDeleteAccount, updateAccount as apiUpdateAccount, batchAddAccounts as apiBatchAddAccounts } from '../api/accounts';
+import { getArchives, createArchive, createArchiveWithFiles, uploadArchiveFiles, getArchiveDetail, deleteArchive } from '../api/archives';
 import ImageUpload from '../components/ImageUpload.vue';
 import SimpleModal from '../components/SimpleModal.vue';
 
@@ -790,8 +1181,36 @@ const searchKeyword = ref('');
 
 // 专栏模态框
 const isColumnModalVisible = ref(false);
-const newColumn = ref({ name: '' });
+const isCreatingColumn = ref(false);
+const newColumn = ref({ name: '', archiveId: '' });
 const columnImageUpload = ref(null);
+
+// 模型存档数据
+const completedArchives = ref([]);
+
+// 模型存档管理相关变量
+const modelArchives = ref([]);
+const showCreateArchiveModal = ref(false);
+const newArchiveName = ref('');
+const createMode = ref('existing'); // 'existing' 或 'train'
+const showUploadModalFlag = ref(false);
+const currentArchive = ref(null);
+const showDetailModal = ref(false);
+const showDeleteArchiveConfirm = ref(false);
+const archiveToDelete = ref(null);
+const knowledgeMappingFile = ref(null);
+const dataFiles = ref([]);
+const isUploading = ref(false);
+const uploadProgress = ref(0);
+
+// 创建存档 - 选择已有模型
+const word2VecModelFile = ref(null);
+const diagnosisModelFiles = ref([]);
+const knowledgeMappingFileForCreate = ref(null);
+
+// 创建存档 - 上传训练文件
+const trainDataFiles = ref([]);
+const knowledgeMappingFileForTrain = ref(null);
 
 // 评语模态框
 const isCommentModalVisible = ref(false);
@@ -805,6 +1224,17 @@ const viewCommentContent = ref('');
 const viewCommentFeedback = ref('');
 // 修改评语模式
 const isEditingComment = ref(false);
+
+// 批量生成评语
+const selectedStudents = ref([]);
+const selectAllStudents = ref(false);
+const isBatchCommentModalVisible = ref(false);
+const batchStudents = ref([]);
+const currentBatchIndex = ref(0);
+const batchAdditionComments = ref([]);
+const batchImagePaths = ref([]); // 存储每个学生的图片路径
+const batchImageUploadKey = ref(0);
+const isBatchGenerating = ref(false);
 // 当前查看的评语对象
 const currentViewingComment = ref(null);
 
@@ -818,6 +1248,7 @@ const isStoring = ref(false);
 
 // 图片上传
 const imageUpload = ref(null);
+const batchImageUploads = ref(null);
 const uploadedImages = ref([]);
 const previewImages = ref([]);
 const imageUploadKey = ref(0);
@@ -1021,6 +1452,150 @@ const handleStudentAction = (student) => {
   isEditingComment.value = false;
   imageUploadKey.value++;
   isCommentModalVisible.value = true;
+};
+
+// 全选/取消全选
+const handleSelectAll = () => {
+  if (selectAllStudents.value) {
+    selectedStudents.value = filteredStudents.value.map(student => student.id);
+  } else {
+    selectedStudents.value = [];
+  }
+};
+
+// 批量生成评语按钮点击
+const handleBatchGenerate = () => {
+  if (!selectedColumnId.value || selectedStudents.value.length === 0) return;
+  
+  // 获取选中的学生
+  batchStudents.value = filteredStudents.value.filter(student => 
+    selectedStudents.value.includes(student.id)
+  );
+  
+  // 初始化附加评语数组和图片路径数组
+  batchAdditionComments.value = new Array(batchStudents.value.length).fill('');
+  batchImagePaths.value = new Array(batchStudents.value.length).fill([]);
+  
+  // 重置当前索引
+  currentBatchIndex.value = 0;
+  
+  // 打开批量生成模态框
+  isBatchCommentModalVisible.value = true;
+};
+
+// 关闭批量生成模态框
+const closeBatchCommentModal = () => {
+  isBatchCommentModalVisible.value = false;
+  batchStudents.value = [];
+  batchAdditionComments.value = [];
+  batchImagePaths.value = [];
+  currentBatchIndex.value = 0;
+};
+
+// 导航批量模态框
+const navigateBatchModal = async (direction) => {
+  // 保存当前学生的图片
+  if (batchImageUploads.value) {
+    try {
+      const uploadedImages = await batchImageUploads.value.uploadImages(true);
+      const imagePaths = uploadedImages.map(img => {
+        if (img.path && img.path.startsWith('http://localhost:5000/')) {
+          return img.path.replace('http://localhost:5000/', '');
+        }
+        return img.path;
+      });
+      batchImagePaths.value[currentBatchIndex.value] = imagePaths;
+      console.log(`[批量生成] 保存学生 ${batchStudents.value[currentBatchIndex.value].name} 的图片:`, imagePaths);
+    } catch (error) {
+      console.error(`[批量生成] 保存当前学生图片失败:`, error);
+    }
+  }
+  
+  const newIndex = currentBatchIndex.value + direction;
+  if (newIndex >= 0 && newIndex < batchStudents.value.length) {
+    currentBatchIndex.value = newIndex;
+    batchImageUploadKey.value++;
+  }
+};
+
+// 获取当前批量学生
+const currentBatchStudent = computed(() => {
+  return batchStudents.value[currentBatchIndex.value] || null;
+});
+
+// 批量生成评语
+const generateBatchComments = async () => {
+  if (!selectedColumnId.value || batchStudents.value.length === 0) return;
+  
+  isBatchGenerating.value = true;
+  
+  try {
+    // 先保存当前学生的图片（如果是最后一个学生）
+    if (batchImageUploads.value) {
+      try {
+        const uploadedImages = await batchImageUploads.value.uploadImages(true);
+        const imagePaths = uploadedImages.map(img => {
+          if (img.path && img.path.startsWith('http://localhost:5000/')) {
+            return img.path.replace('http://localhost:5000/', '');
+          }
+          return img.path;
+        });
+        batchImagePaths.value[currentBatchIndex.value] = imagePaths;
+        console.log(`[批量生成] 保存最后一个学生 ${batchStudents.value[currentBatchIndex.value].name} 的图片:`, imagePaths);
+      } catch (error) {
+        console.error(`[批量生成] 保存最后一个学生图片失败:`, error);
+      }
+    }
+    
+    // 并行处理，每次处理2-3个学生
+    const batchSize = 2;
+    const totalBatches = Math.ceil(batchStudents.value.length / batchSize);
+    
+    for (let i = 0; i < totalBatches; i++) {
+      const start = i * batchSize;
+      const end = Math.min(start + batchSize, batchStudents.value.length);
+      const batch = batchStudents.value.slice(start, end);
+      
+      // 并行处理当前批次
+      const batchPromises = batch.map(async (student, index) => {
+        const studentIndex = start + index;
+        const addition = batchAdditionComments.value[studentIndex] || '';
+        
+        // 获取该学生的图片路径
+        const imagePaths = batchImagePaths.value[studentIndex] || [];
+        console.log(`[批量生成] 学生 ${student.name} 使用图片:`, imagePaths);
+        
+        // 准备数据
+        const commentData = {
+          studentId: student.id,
+          columnId: selectedColumnId.value,
+          style: 'encouraging',
+          imagePaths: imagePaths,
+          addition: addition
+        };
+        
+        // 生成评语
+        const result = await apiGenerateComment(commentData);
+        return result;
+      });
+      
+      // 等待当前批次完成
+      await Promise.all(batchPromises);
+    }
+    
+    // 重新加载学生数据
+    await loadStudents();
+    
+    // 关闭模态框
+    closeBatchCommentModal();
+    
+    alert('批量生成评语成功！');
+  } catch (error) {
+    console.error('批量生成评语失败:', error);
+    alert('批量生成评语失败，请重试');
+  } finally {
+    isBatchGenerating.value = false;
+  }
 };
 
 // 关闭专栏模态框
@@ -1310,13 +1885,23 @@ const loadAccounts = async () => {
 
 // 创建专栏
 const createColumn = async () => {
-  if (!newColumn.value.name) return;
+  if (!newColumn.value.name) {
+    alert('请输入专栏名称');
+    return;
+  }
   
+  if (!newColumn.value.archiveId) {
+    alert('请选择模型存档');
+    return;
+  }
+  
+  isCreatingColumn.value = true;
   try {
     // 准备专栏数据
     const columnData = {
       name: newColumn.value.name,
-      teacherId: 1 // 默认教师ID为1
+      archiveId: newColumn.value.archiveId,
+      teacherId: 1 // 默认教师 ID 为 1
     };
     
     // 获取预览图片的文件对象
@@ -1331,7 +1916,7 @@ const createColumn = async () => {
     const result = await addColumn(columnData);
     if (result) {
       columns.value.push(result);
-      newColumn.value = { name: '' };
+      newColumn.value = { name: '', archiveId: '' };
       isColumnModalVisible.value = false;
       // 清空图片上传组件的预览
       if (columnImageUpload.value) {
@@ -1341,6 +1926,8 @@ const createColumn = async () => {
   } catch (error) {
     console.error('创建专栏失败:', error);
     alert('创建专栏失败，请重试');
+  } finally {
+    isCreatingColumn.value = false;
   }
 };
 
@@ -1410,7 +1997,222 @@ onMounted(() => {
   loadStudents();
   loadColumns();
   loadAccounts();
+  loadArchives();
 });
+
+// 加载模型存档
+const loadArchives = async () => {
+  try {
+    const response = await getArchives(currentUser.value.id);
+    if (response.data.success) {
+      completedArchives.value = response.data.archives.filter(archive => archive.status === 'completed');
+      modelArchives.value = response.data.archives;
+    }
+  } catch (error) {
+    console.error('加载存档失败:', error);
+  }
+};
+
+// 获取状态文本
+const getStatusText = (status) => {
+  const statusMap = {
+    'pending': '待训练',
+    'training': '训练中',
+    'completed': '已完成',
+    'failed': '失败'
+  }
+  return statusMap[status] || status
+}
+
+// 处理 word2vec 模型文件选择
+const handleWord2VecModelChange = (e) => {
+  word2VecModelFile.value = e.target.files[0]
+}
+
+// 处理诊断模型文件夹选择
+const handleDiagnosisModelChange = (e) => {
+  diagnosisModelFiles.value = Array.from(e.target.files)
+}
+
+// 处理知识点对照表文件选择（创建存档用）
+const handleKnowledgeMappingFileChange = (e) => {
+  if (createMode.value === 'existing') {
+    knowledgeMappingFileForCreate.value = e.target.files[0]
+  } else {
+    knowledgeMappingFileForTrain.value = e.target.files[0]
+  }
+}
+
+// 处理训练数据文件选择
+const handleTrainDataFilesChange = (e) => {
+  trainDataFiles.value = Array.from(e.target.files)
+}
+
+// 创建存档
+const handleCreateArchive = async () => {
+  if (!newArchiveName.value.trim()) {
+    alert('请输入存档名称')
+    return
+  }
+  
+  try {
+    const formData = new FormData()
+    formData.append('name', newArchiveName.value.trim())
+    formData.append('user_id', currentUser.value.id)
+    formData.append('create_mode', createMode.value)
+    
+    if (createMode.value === 'existing') {
+      // 选择已有模型模式
+      if (!word2VecModelFile.value) {
+        alert('请上传知识点推理模型文件')
+        return
+      }
+      if (diagnosisModelFiles.value.length === 0) {
+        alert('请上传认知诊断模型文件夹')
+        return
+      }
+      if (!knowledgeMappingFileForCreate.value) {
+        alert('请上传知识点对照表')
+        return
+      }
+      
+      formData.append('word2vec_model', word2VecModelFile.value)
+      diagnosisModelFiles.value.forEach(file => {
+        formData.append('diagnosis_model_files', file)
+      })
+      formData.append('knowledge_mapping', knowledgeMappingFileForCreate.value)
+    } else {
+      // 上传训练文件模式
+      if (!knowledgeMappingFileForTrain.value) {
+        alert('请上传知识点对照表')
+        return
+      }
+      if (trainDataFiles.value.length === 0) {
+        alert('请上传训练数据文件')
+        return
+      }
+      
+      formData.append('knowledge_mapping', knowledgeMappingFileForTrain.value)
+      trainDataFiles.value.forEach(file => {
+        formData.append('train_data_files', file)
+      })
+    }
+    
+    const response = await createArchiveWithFiles(formData)
+    if (response.data.success) {
+      alert('存档创建成功')
+      showCreateArchiveModal.value = false
+      newArchiveName.value = ''
+      // 重置文件变量
+      word2VecModelFile.value = null
+      diagnosisModelFiles.value = []
+      knowledgeMappingFileForCreate.value = null
+      knowledgeMappingFileForTrain.value = null
+      trainDataFiles.value = []
+      loadArchives()
+    }
+  } catch (error) {
+    console.error('创建存档失败:', error)
+    alert(error.response?.data?.error || '创建存档失败')
+  }
+}
+
+// 显示上传模态框
+const showUploadModal = (archive) => {
+  currentArchive.value = archive
+  showUploadModalFlag.value = true
+  knowledgeMappingFile.value = null
+  dataFiles.value = []
+  uploadProgress.value = 0
+}
+
+// 处理知识点映射文件选择
+const handleKnowledgeMappingChange = (e) => {
+  knowledgeMappingFile.value = e.target.files[0]
+}
+
+// 处理数据文件选择
+const handleDataFilesChange = (e) => {
+  dataFiles.value = Array.from(e.target.files)
+}
+
+// 上传文件并开始训练
+const handleUploadFiles = async () => {
+  if (!knowledgeMappingFile.value) {
+    alert('请上传知识点映射文件')
+    return
+  }
+  
+  if (dataFiles.value.length === 0) {
+    alert('请至少上传一个训练数据文件')
+    return
+  }
+  
+  isUploading.value = true
+  uploadProgress.value = 10
+  
+  try {
+    const formData = new FormData()
+    formData.append('knowledge_mapping', knowledgeMappingFile.value)
+    dataFiles.value.forEach(file => {
+      formData.append('data_files', file)
+    })
+    
+    const response = await uploadArchiveFiles(currentArchive.value.id, formData)
+    
+    if (response.data.success) {
+      uploadProgress.value = 100
+      alert('文件上传成功，训练已启动')
+      showUploadModalFlag.value = false
+      loadArchives()
+    }
+  } catch (error) {
+    console.error('上传文件失败:', error)
+    alert('上传文件失败：' + (error.response?.data?.error || '未知错误'))
+  } finally {
+    isUploading.value = false
+    setTimeout(() => {
+      uploadProgress.value = 0
+    }, 1000)
+  }
+}
+
+// 显示存档详情
+const showArchiveDetail = async (archive) => {
+  currentArchive.value = archive
+  try {
+    const response = await getArchiveDetail(archive.id)
+    if (response.data.success) {
+      currentArchive.value = response.data.archive
+      showDetailModal.value = true
+    }
+  } catch (error) {
+    console.error('获取存档详情失败:', error)
+    alert('获取存档详情失败')
+  }
+}
+
+// 确认删除
+const confirmDeleteArchive = (archive) => {
+  archiveToDelete.value = archive
+  showDeleteArchiveConfirm.value = true
+}
+
+// 删除存档
+const handleDeleteArchive = async () => {
+  try {
+    const response = await deleteArchive(archiveToDelete.value.id)
+    if (response.data.success) {
+      alert('存档删除成功')
+      showDeleteArchiveConfirm.value = false
+      archiveToDelete.value = null
+      loadArchives()
+    }
+  } catch (error) {
+    console.error('删除存档失败:', error)
+    alert(error.response?.data?.error || '删除存档失败')
+  }
+}
 </script>
 
 <style scoped>
@@ -1580,6 +2382,97 @@ onMounted(() => {
 
 .create-column-button:hover {
   background-color: #357abd;
+}
+
+.batch-generate-button {
+  background-color: #50e3c2;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.batch-generate-button:hover:not(:disabled) {
+  background-color: #38c1a1;
+}
+
+.batch-generate-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 批量生成模态框样式 */
+.batch-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 6px;
+}
+
+.nav-button {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.nav-button:hover:not(:disabled) {
+  background-color: #357abd;
+}
+
+.nav-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.batch-progress {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.batch-student-info {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.batch-student-info h4 {
+  margin: 0 0 5px 0;
+  color: #333;
+}
+
+.batch-student-info p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* 复选框样式 */
+.select-all-checkbox,
+.student-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.student-row:hover {
+  background-color: #f9f9f9;
 }
 
 /* 筛选和搜索区 */
@@ -1872,6 +2765,16 @@ onMounted(() => {
   display: none;
 }
 
+.file-input-visible {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
 .action-button {
   padding: 8px 15px;
   border: none;
@@ -2068,6 +2971,33 @@ onMounted(() => {
 .submit-button:disabled {
   background-color: #a0c4f1;
   cursor: not-allowed;
+}
+
+/* 加载动画样式 */
+.submit-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 15px;
+  background-color: #4a90e2;
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* 表单样式 */
@@ -2356,5 +3286,388 @@ onMounted(() => {
     padding: 6px 10px;
     font-size: 12px;
   }
+}
+
+/* 模型存档管理样式 */
+.model-archives-interface {
+  padding: 20px;
+}
+
+.model-archives-interface .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.model-archives-interface .page-header h2 {
+  font-size: 28px;
+  color: #333;
+  margin: 0;
+}
+
+.model-archives-interface .create-archive-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.model-archives-interface .create-archive-button:hover {
+  transform: translateY(-2px);
+}
+
+.model-archives-interface .archives-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.model-archives-interface .archive-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s;
+}
+
+.model-archives-interface .archive-card.training {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.model-archives-interface .archive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.model-archives-interface .archive-header h3 {
+  font-size: 20px;
+  color: #333;
+  margin: 0;
+}
+
+.model-archives-interface .status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.model-archives-interface .status-badge.pending {
+  background: #ffeaa7;
+  color: #d63031;
+}
+
+.model-archives-interface .status-badge.training {
+  background: #74b9ff;
+  color: #0984e3;
+}
+
+.model-archives-interface .status-badge.completed {
+  background: #55efc4;
+  color: #00b894;
+}
+
+.model-archives-interface .status-badge.failed {
+  background: #fab1a0;
+  color: #d63031;
+}
+
+.model-archives-interface .archive-info {
+  margin-bottom: 20px;
+}
+
+.model-archives-interface .info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.model-archives-interface .info-item:last-child {
+  border-bottom: none;
+}
+
+.model-archives-interface .label {
+  font-weight: bold;
+  color: #666;
+}
+
+.model-archives-interface .value {
+  color: #333;
+}
+
+.model-archives-interface .value.success {
+  color: #00b894;
+}
+
+.model-archives-interface .archive-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.model-archives-interface .action-button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+
+.model-archives-interface .action-button.upload {
+  background: #667eea;
+  color: white;
+}
+
+.model-archives-interface .action-button.view {
+  background: #00b894;
+  color: white;
+}
+
+.model-archives-interface .action-button.training {
+  background: #b2bec3;
+  color: white;
+  cursor: not-allowed;
+}
+
+.model-archives-interface .action-button.delete {
+  background: #ff4757;
+  color: white;
+}
+
+.model-archives-interface .action-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.model-archives-interface .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+  font-size: 16px;
+}
+
+/* 模态框样式 */
+.model-archives-interface .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.model-archives-interface .modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.model-archives-interface .modal-content h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.model-archives-interface .form-group {
+  margin-bottom: 20px;
+}
+
+.model-archives-interface .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #666;
+}
+
+.model-archives-interface .form-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.model-archives-interface .file-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.model-archives-interface .hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 5px;
+}
+
+.model-archives-interface .progress-bar {
+  width: 100%;
+  height: 20px;
+  background: #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 15px;
+  position: relative;
+}
+
+.model-archives-interface .progress {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s;
+}
+
+.model-archives-interface .progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.model-archives-interface .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.model-archives-interface .cancel-button,
+.model-archives-interface .submit-button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.model-archives-interface .cancel-button {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.model-archives-interface .submit-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.model-archives-interface .submit-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.model-archives-interface .submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.model-archives-interface .delete-button {
+  background: #ff4757;
+  color: white;
+}
+
+.model-archives-interface .upload-modal {
+  max-width: 500px;
+}
+
+.model-archives-interface .detail-content {
+  margin-bottom: 20px;
+}
+
+.model-archives-interface .info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.model-archives-interface .info-row:last-child {
+  border-bottom: none;
+}
+
+.model-archives-interface .training-log {
+  margin-top: 20px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.model-archives-interface .training-log h4 {
+  margin: 0 0 10px 0;
+  color: #666;
+}
+
+.model-archives-interface .training-log pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 12px;
+  color: #333;
+  margin: 0;
+}
+
+/* 创建存档模态框样式 */
+.create-archive-modal {
+  max-width: 600px;
+}
+
+.create-mode-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 10px;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.tab-button:hover {
+  background: #e0e0e0;
+}
+
+.tab-button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.tab-content {
+  min-height: 200px;
+}
+
+.existing-model-section,
+.train-model-section {
+  padding: 10px 0;
 }
 </style>

@@ -18,12 +18,10 @@
           <span class="comment-date">{{ formatDate(comment.created) }}</span>
           <span class="comment-column">{{ getColumnById(comment.columnId)?.name }}</span>
         </div>
-        <div class="comment-content">
-          {{ comment.content }}
-        </div>
+        <div class="comment-content" v-html="formatContent(comment.content)"></div>
         <div v-if="comment.feedback" class="comment-feedback">
           <div class="feedback-label">学生反馈:</div>
-          <div class="feedback-content">{{ comment.feedback }}</div>
+          <div class="feedback-content" v-html="formatContent(comment.feedback)"></div>
         </div>
       </div>
 
@@ -163,13 +161,18 @@
         </div>
 
         <div class="modal-footer">
-          <button @click="closeModal" class="cancel-button">取消</button>
+          <button @click="closeModal" class="cancel-button" :disabled="isGenerating">取消</button>
+          <div class="submit-container" v-if="isGenerating">
+            <div class="loading-spinner"></div>
+            <span>生成中，请稍候...</span>
+          </div>
           <button
+              v-else
               @click="generateComment"
               class="submit-button"
-              :disabled="!selectedStudentId || !selectedColumnId || isGenerating"
+              :disabled="!selectedStudentId || !selectedColumnId"
           >
-            {{ isGenerating ? '生成中...' : '确认生成' }}
+            确认生成
           </button>
         </div>
       </div>
@@ -201,100 +204,25 @@ const students = ref([])
 const columns = ref([])
 const comments = ref([])
 
-// 辅助函数
-const getColumnById = (id) => {
-  return columns.value.find(column => column.id === id)
-}
+// 计算属性
+const selectedStudent = computed(() => {
+  return students.value.find(s => s.id === selectedStudentId.value)
+})
 
-// 日期格式化
-const formatDate = (dateString) => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
+const selectedColumn = computed(() => {
+  return columns.value.find(c => c.id === selectedColumnId.value)
+})
 
-// 模态框控制
-const openModal = async () => {
-  // 确保数据已加载
-  if (students.value.length === 0) {
-    await loadData()
-  }
-
-  // 设置默认选中第一个学生和专栏
-  if (students.value.length > 0 && !selectedStudentId.value) {
-    selectedStudentId.value = students.value[0].id
-  }
-  if (columns.value.length > 0 && !selectedColumnId.value) {
-    selectedColumnId.value = columns.value[0].id
-  }
-
+// 方法
+const openModal = () => {
   isModalVisible.value = true
 }
 
 const closeModal = () => {
   isModalVisible.value = false
-}
-
-// 生成评语
-const generateComment = async () => {
-  if (!selectedStudentId.value || !selectedColumnId.value) {
-    console.warn('请选择学生和专栏')
-    return
-  }
-
-  try {
-    isGenerating.value = true
-
-    // 获取选中的学生信息
-    const selectedStudent = students.value.find(s => s.id === selectedStudentId.value)
-    const selectedColumn = columns.value.find(c => c.id === selectedColumnId.value)
-
-    // 构造请求数据
-    const requestData = {
-      studentId: selectedStudentId.value,
-      studentName: selectedStudent?.name || '',
-      studentNo: selectedStudent?.studentId || '',
-      columnId: selectedColumnId.value,
-      columnName: selectedColumn?.name || '',
-      style: selectedStyle.value,
-      focusAreas: focusAreas.value
-    }
-
-    console.log('发送请求数据:', requestData)
-
-    const result = await apiGenerateComment(requestData)
-
-    if (result) {
-      console.log('收到响应:', result)
-
-      // 添加到评语列表
-      const newComment = {
-        id: Date.now().toString(),
-        studentId: selectedStudentId.value,
-        columnId: selectedColumnId.value,
-        content: result.content || '生成评语内容',
-        created: new Date().toISOString(),
-        feedback: result.feedback || ''
-      }
-
-      comments.value.unshift(newComment)
-
-      // 关闭模态框
-      closeModal()
-
-      // 显示成功消息
-      alert('评语生成成功！')
-    }
-  } catch (error) {
-    console.error('生成评语失败:', error)
-    alert('生成评语失败，请检查网络连接或稍后重试')
-  } finally {
-    isGenerating.value = false
-  }
-}
-
-// 重置表单
-const resetForm = () => {
+  // 重置表单
+  selectedStudentId.value = ''
+  selectedColumnId.value = ''
   selectedStyle.value = 'encouraging'
   focusAreas.value = {
     academic: true,
@@ -304,110 +232,134 @@ const resetForm = () => {
   }
 }
 
-// 加载数据
-const loadData = async () => {
-  try {
-    console.log('开始加载数据...')
-
-    const [studentsData, columnsData] = await Promise.all([
-      getStudents(),
-      getColumns()
-    ])
-
-    console.log('学生数据:', studentsData)
-    console.log('专栏数据:', columnsData)
-
-    students.value = studentsData || []
-    columns.value = columnsData || []
-
-  } catch (error) {
-    console.error('加载数据失败:', error)
-    // 设置默认数据用于测试
-    students.value = [
-      { id: '1', name: '张三', studentId: '2021001' },
-      { id: '2', name: '李四', studentId: '2021002' }
-    ]
-    columns.value = [
-      { id: '1', name: '期中评价' },
-      { id: '2', name: '期末评价' },
-      { id: '3', name: '思想品德鉴定' }
-    ]
-  }
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
-// 加载评语
-const loadComments = async () => {
-  try {
-    if (selectedStudentId.value) {
-      const commentsData = await getStudentComments(selectedStudentId.value)
-      comments.value = commentsData || []
-    }
-  } catch (error) {
-    console.error('加载评语失败:', error)
-  }
+const getColumnById = (columnId) => {
+  return columns.value.find(c => c.id === columnId)
 }
 
-// 监听学生选择变化
-watch(selectedStudentId, (newVal) => {
-  if (newVal) {
-    loadComments()
-  } else {
-    comments.value = []
-  }
-})
+// 格式化内容，将换行符转换为<br>标签
+const formatContent = (content) => {
+  if (!content) return ''
+  // 将换行符转换为<br>标签，并转义HTML特殊字符
+  return content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')
+}
 
-// 监听模态框显示/隐藏
-watch(isModalVisible, (newVal) => {
-  if (newVal) {
-    console.log('模态框打开，当前选择:', {
+const generateComment = async () => {
+  if (!selectedStudentId.value || !selectedColumnId.value) {
+    alert('请选择学生和专栏')
+    return
+  }
+
+  isGenerating.value = true
+  try {
+    const focusAreasList = Object.entries(focusAreas.value)
+      .filter(([_, value]) => value)
+      .map(([key, _]) => key)
+
+    const result = await apiGenerateComment({
       studentId: selectedStudentId.value,
       columnId: selectedColumnId.value,
-      students: students.value.length,
-      columns: columns.value.length
+      style: selectedStyle.value,
+      focusAreas: focusAreasList
     })
+
+    if (result.success) {
+      alert('评语生成成功！')
+      closeModal()
+      // 刷新评语列表
+      await loadComments()
+    } else {
+      alert(result.message || '生成失败')
+    }
+  } catch (error) {
+    console.error('生成评语失败:', error)
+    alert('生成评语失败: ' + error.message)
+  } finally {
+    isGenerating.value = false
   }
-})
+}
+
+const loadStudents = async () => {
+  try {
+    const result = await getStudents()
+    if (result.success) {
+      students.value = result.data
+    }
+  } catch (error) {
+    console.error('加载学生列表失败:', error)
+  }
+}
+
+const loadColumns = async () => {
+  try {
+    const result = await getColumns()
+    if (result.success) {
+      columns.value = result.data
+    }
+  } catch (error) {
+    console.error('加载专栏列表失败:', error)
+  }
+}
+
+const loadComments = async () => {
+  try {
+    const result = await getStudentComments()
+    if (result.success) {
+      comments.value = result.data
+    }
+  } catch (error) {
+    console.error('加载评语列表失败:', error)
+  }
+}
 
 // 生命周期
 onMounted(() => {
-  console.log('组件挂载完成')
-  loadData()
-})
-
-// 暴露给父组件的方法
-defineExpose({
-  openModal
+  loadStudents()
+  loadColumns()
+  loadComments()
 })
 </script>
 
 <style scoped>
-/* 样式保持不变，但确保所有样式都正确复制 */
 .comment-generator-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .generator-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 24px;
 }
 
 .generator-header h2 {
   margin: 0;
-  font-size: 20px;
   color: #333;
+  font-size: 24px;
 }
 
 .generate-button {
-  padding: 10px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
+  padding: 12px 24px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -417,36 +369,43 @@ defineExpose({
 
 .generate-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .comments-list {
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .comment-item {
-  background: #f5f7fa;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.comment-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .comment-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #666;
+  margin-bottom: 12px;
 }
 
 .comment-date {
-  font-weight: 500;
+  color: #666;
+  font-size: 12px;
 }
 
 .comment-column {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
@@ -454,8 +413,9 @@ defineExpose({
 
 .comment-content {
   color: #333;
-  line-height: 1.6;
+  line-height: 1.8;
   margin-bottom: 12px;
+  word-wrap: break-word;
 }
 
 .comment-feedback {
@@ -473,7 +433,8 @@ defineExpose({
 
 .feedback-content {
   color: #333;
-  line-height: 1.5;
+  line-height: 1.8;
+  word-wrap: break-word;
 }
 
 .no-comments {
@@ -498,94 +459,99 @@ defineExpose({
 
 .modal-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
   color: #333;
+  font-size: 18px;
 }
 
 .modal-close {
   background: none;
   border: none;
   font-size: 24px;
-  cursor: pointer;
   color: #999;
+  cursor: pointer;
   padding: 0;
-  width: 24px;
-  height: 24px;
-  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
+  background: #f5f5f5;
   color: #333;
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 24px;
 }
 
 .form-group {
   margin-bottom: 20px;
 }
 
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
 .form-label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
   color: #333;
+  font-weight: 500;
   font-size: 14px;
 }
 
 .form-select {
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
   font-size: 14px;
-  transition: all 0.3s ease;
   background: white;
-  cursor: pointer;
+  transition: border-color 0.2s ease;
 }
 
 .form-select:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .style-options {
   display: flex;
-  flex-wrap: wrap;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .style-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
+  flex: 1;
+  min-width: 80px;
+  padding: 12px 16px;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
+  text-align: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  min-width: 100px;
+  transition: all 0.2s ease;
 }
 
 .style-option:hover {
@@ -594,28 +560,23 @@ defineExpose({
 
 .style-option.active {
   border-color: #667eea;
-  background-color: rgba(102, 126, 234, 0.1);
+  background: rgba(102, 126, 234, 0.1);
   color: #667eea;
 }
 
 .focus-areas {
   display: flex;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 12px;
 }
 
 .focus-area {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  min-width: 120px;
+  transition: all 0.2s ease;
+  font-size: 13px;
 }
 
 .focus-area:hover {
@@ -624,31 +585,32 @@ defineExpose({
 
 .focus-area.active {
   border-color: #667eea;
-  background-color: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 20px;
-  border-top: 1px solid #e0e0e0;
+  padding: 20px 24px;
+  border-top: 1px solid #eee;
 }
 
 .cancel-button {
   padding: 12px 24px;
-  background: #f5f7fa;
   border: 2px solid #e0e0e0;
+  background: white;
+  color: #666;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  font-size: 14px;
+  transition: all 0.2s ease;
 }
 
 .cancel-button:hover {
-  background: #e0e0e0;
+  border-color: #999;
+  color: #333;
 }
 
 .submit-button {
@@ -657,19 +619,46 @@ defineExpose({
   color: white;
   border: none;
   border-radius: 8px;
+  cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .submit-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .submit-button:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 加载动画样式 */
+.submit-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

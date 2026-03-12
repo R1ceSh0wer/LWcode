@@ -87,7 +87,7 @@ def load_resources():
 def load_model(model_path):
     model = NetKnowledge(len(word2id), word_emb)
     f = open(model_path, 'rb')
-    model.load_state_dict(torch.load(f, map_location=lambda s, loc: s))
+    model.load_state_dict(torch.load(f, map_location=lambda s, loc: s, weights_only=True))
     f.close()
     model = model.to(device)
     model.eval()
@@ -128,7 +128,7 @@ def predict_knowledge(model, text, top_k=5):
     
     result = {}
     for k_id, score in knowledge_scores[:top_k]:
-        result[str(k_id)] = score
+        result[str(k_id)] = float(score)
     
     return result
 

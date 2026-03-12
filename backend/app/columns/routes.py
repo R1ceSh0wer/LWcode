@@ -1,10 +1,12 @@
 from flask import jsonify, request, current_app
 from datetime import datetime
-from models import db, ExamColumn, Comment
-from utils import allowed_file, ocr_process, batch_ocr_process, save_uploaded_file, init_ocr_engine, extract_knowledge_from_ocr_text, get_knowledge_model
+from .models import ExamColumn
+from ..comments.models import Comment
+from ..users.models import db
+from utils import allowed_file, ocr_process, batch_ocr_process, save_uploaded_file, init_ocr_engine, extract_knowledge_from_ocr_text, process_question_images_for_knowledge, get_knowledge_model
 import os
 import json
-from app.columns import bp
+from . import bp
 
 
 @bp.route('/columns', methods=['GET'])
@@ -18,6 +20,7 @@ def get_columns():
                 'id': str(column.id),
                 'name': column.title,
                 'description': column.question_text or '',
+                'archiveId': column.archive_id,
                 'created': column.created_at.strftime('%Y-%m-%d'),
                 'teacherId': str(column.teacher_id)
             })
@@ -37,6 +40,7 @@ def get_column(id):
                 'id': str(column.id),
                 'name': column.title,
                 'description': column.question_text or '',
+                'archiveId': column.archive_id,
                 'created': column.created_at.strftime('%Y-%m-%d'),
                 'questionImagePath': column.question_image_path or '',
                 'teacherId': str(column.teacher_id)
@@ -51,11 +55,13 @@ def create_column():
     try:
         title = request.form.get('name')
         teacher_id = request.form.get('teacherId', 1)
+        archive_id = request.form.get('archiveId', type=int)
         
         new_column = ExamColumn(
             teacher_id=teacher_id,
             title=title,
-            question_text=""
+            question_text="",
+            archive_id=archive_id
         )
         db.session.add(new_column)
         db.session.commit()
@@ -95,15 +101,11 @@ def create_column():
                 print(f'[DEBUG] 知识点模型获取结果: {knowledge_model is not None}')
                 
                 if knowledge_model:
-                    all_questions = {}
-                    all_knowledge = {}
+                    # 初始化OCR引擎
+                    ocr_engine = init_ocr_engine()
                     
-                    # 从OCR结果中提取题目和知识点
-                    for i, ocr_result in enumerate(ocr_results):
-                        if ocr_result:
-                            questions, knowledge = extract_knowledge_from_ocr_text(ocr_result, knowledge_model)
-                            all_questions.update(questions)
-                            all_knowledge.update(knowledge)
+                    # 使用 process_question_images_for_knowledge 处理分页题目
+                    all_questions, all_knowledge = process_question_images_for_knowledge(file_paths, ocr_engine, knowledge_model)
                     
                     question_texts_dict = {str(k): v for k, v in all_questions.items()}
                     question_knowledge_dict = {str(k): v for k, v in all_knowledge.items()}
@@ -125,6 +127,7 @@ def create_column():
             'name': new_column.title,
             'description': new_column.question_text,
             'questionKnowledge': new_column.question_knowledge,
+            'archiveId': new_column.archive_id,
             'created': new_column.created_at.strftime('%Y-%m-%d'),
             'teacherId': str(new_column.teacher_id)
         }), 201
@@ -145,12 +148,14 @@ def update_column(id):
         
         column.title = data.get('name', column.title)
         column.question_text = data.get('description', column.question_text)
+        column.archive_id = data.get('archiveId', column.archive_id)
         db.session.commit()
         
         return jsonify({
             'id': str(column.id),
             'name': column.title,
             'description': column.question_text,
+            'archiveId': column.archive_id,
             'created': column.created_at.strftime('%Y-%m-%d'),
             'teacherId': str(column.teacher_id)
         })

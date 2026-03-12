@@ -93,7 +93,7 @@
     <main class="main-content">
       <!-- 知识图谱区域 -->
       <div 
-        v-if="activeSection === 'knowledge-graph'" 
+        v-if="activeSection === 'knowledge-graph' " 
         class="section-container"
       >
         <div class="section-header">
@@ -105,7 +105,7 @@
 
       <!-- 我的评语区域 -->
       <div 
-        v-if="activeSection === 'my-comments'" 
+        v-if="activeSection === 'my-comments' " 
         class="section-container"
       >
         <div class="section-header">
@@ -121,9 +121,28 @@
             <p class="section-description">查看教师对我的评价</p>
           </div>
         </div>
+        
+        <!-- 专栏选择器 -->
+        <div class="column-selector">
+          <label class="selector-label">选择专栏：</label>
+          <select v-model="selectedColumnId" class="column-select">
+            <option value="">全部专栏</option>
+            <option
+              v-for="column in columns"
+              :key="column.id"
+              :value="column.id"
+            >
+              {{ column.name }}
+            </option>
+          </select>
+          <span class="selected-count" v-if="filteredComments.length > 0">
+            共 {{ filteredComments.length }} 条评语
+          </span>
+        </div>
+        
         <div class="comments-container">
           <div 
-            v-for="comment in myComments" 
+            v-for="comment in filteredComments" 
             :key="comment.id"
             class="comment-card"
           >
@@ -131,12 +150,10 @@
               <h3 class="comment-column">{{ getColumnById(comment.columnId)?.name }}</h3>
               <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
             </div>
-            <div class="comment-content">
-              {{ comment.content }}
-            </div>
+            <div class="comment-content" v-html="formatContent(comment.content)"></div>
             <div class="comment-actions">
               <button 
-                @click="showCommentDetails(comment)" 
+                @click="showCommentDetails(comment) " 
                 class="view-details-button"
               >
                 📋 查看详情
@@ -145,13 +162,13 @@
             <div v-if="!comment.feedback || comment.feedback.trim() === ''" class="comment-feedback-section">
               <h4 class="feedback-title">提交反馈</h4>
               <textarea 
-                v-model="commentFeedback[comment.id]" 
+                v-model="commentFeedback[comment.id] " 
                 placeholder="请输入您的反馈意见..."
                 class="feedback-input"
                 rows="3"
               ></textarea>
               <button 
-                @click="submitFeedback(comment.id)" 
+                @click="submitFeedback(comment.id) " 
                 class="submit-feedback-button"
                 :disabled="!commentFeedback[comment.id]"
               >
@@ -162,21 +179,21 @@
               <div v-if="editingFeedback[comment.id]">
                 <h4 class="feedback-title">修改反馈</h4>
                 <textarea 
-                  v-model="commentFeedback[comment.id]" 
+                  v-model="commentFeedback[comment.id] " 
                   placeholder="请输入您的反馈意见..."
                   class="feedback-input"
                   rows="3"
                 ></textarea>
                 <div class="feedback-buttons">
                   <button 
-                    @click="updateFeedback(comment.id)" 
+                    @click="updateFeedback(comment.id) " 
                     class="submit-feedback-button"
                     :disabled="!commentFeedback[comment.id]"
                   >
                     保存修改
                   </button>
                   <button 
-                    @click="cancelEditFeedback(comment.id)" 
+                    @click="cancelEditFeedback(comment.id) " 
                     class="submit-feedback-button"
                   >
                     取消
@@ -185,11 +202,9 @@
               </div>
               <div v-else>
                 <h4 class="feedback-title">我的反馈</h4>
-                <div class="user-feedback-content">
-                  {{ comment.feedback }}
-                </div>
+                <div class="user-feedback-content" v-html="formatContent(comment.feedback)"></div>
                 <button 
-                  @click="startEditFeedback(comment.id)" 
+                  @click="startEditFeedback(comment.id) " 
                   class="submit-feedback-button"
                 >
                   修改反馈
@@ -198,10 +213,11 @@
             </div>
           </div>
           
-          <div v-if="myComments.length === 0" class="no-comments">
+          <div v-if="filteredComments.length === 0" class="no-comments">
             <div class="no-comments-icon">💬</div>
             <h3>暂无评语</h3>
-            <p>教师还没有给您生成评语，请耐心等待</p>
+            <p v-if="selectedColumnId">该专栏下暂无评语，请选择其他专栏</p>
+            <p v-else>教师还没有给您生成评语，请耐心等待</p>
           </div>
         </div>
         
@@ -216,16 +232,14 @@
               <h3 class="summary-title">学习阶段总结</h3>
               <span class="summary-date">{{ formatDate(summaryComment.createdAt) }}</span>
             </div>
-            <div class="summary-content">
-              {{ summaryComment.content }}
-            </div>
+            <div class="summary-content" v-html="formatContent(summaryComment.content)"></div>
           </div>
         </div>
       </div>
 
       <!-- 学习资源区域 -->
       <div 
-        v-if="activeSection === 'learning-resources'" 
+        v-if="activeSection === 'learning-resources' " 
         class="section-container"
       >
         <div class="section-header">
@@ -237,7 +251,7 @@
 
       <!-- 学习进度区域 -->
       <div 
-        v-if="activeSection === 'learning-progress'" 
+        v-if="activeSection === 'learning-progress' " 
         class="section-container"
       >
         <div class="section-header">
@@ -248,7 +262,7 @@
 
       <!-- 练习题库区域 -->
       <div 
-        v-if="activeSection === 'practice-exercises'" 
+        v-if="activeSection === 'practice-exercises' " 
         class="section-container"
       >
         <div class="section-header">
@@ -259,7 +273,7 @@
 
       <!-- 智能问答区域 -->
       <div 
-        v-if="activeSection === 'smart-qa'" 
+        v-if="activeSection === 'smart-qa' " 
         class="section-container smart-qa-section"
       >
         <div class="section-header smart-qa-header">
@@ -363,7 +377,7 @@
 
       <!-- 个人资料区域 -->
       <div 
-        v-if="activeSection === 'profile'" 
+        v-if="activeSection === 'profile' " 
         class="section-container"
       >
         <div class="section-header">
@@ -403,7 +417,7 @@
 
       <!-- 反馈建议区域 -->
       <div 
-        v-if="activeSection === 'feedback'" 
+        v-if="activeSection === 'feedback' " 
         class="section-container"
       >
         <div class="section-header">
@@ -457,20 +471,17 @@
         </div>
         <!-- 只有当有实际图片时才显示图片容器 -->
         <div v-if="selectedColumnImages && selectedColumnImages.length > 0" class="images-container">
-          <!-- 只显示实际有效的图片，排除包含'无'的情况 -->
           <div 
-            v-for="(image, index) in selectedColumnImages.filter(img => 
-              img && 
-              typeof img === 'string' && 
-              img.trim() !== '' &&
-              !img.includes('无') &&
-              !img.includes('null') &&
-              !img.includes('undefined')
-            )" 
+            v-for="(image, index) in selectedColumnImages" 
             :key="index" 
             class="image-item"
           >
-            <img :src="image" :alt="`试题图片 ${index + 1}`" class="column-image">
+            <img 
+              :src="image" 
+              :alt="`试题图片 ${index + 1}`" 
+              class="column-image"
+              @error="handleImageError($event, image)"
+            >
           </div>
         </div>
       </div>
@@ -479,7 +490,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import KnowledgeGraph from '../components/KnowledgeGraph.vue'
@@ -514,12 +525,29 @@ const summaryComment = ref(null)
 const isGeneratingSummary = ref(false)
 // 跟踪每个评语的反馈编辑状态
 const editingFeedback = ref({})
+// 专栏选择状态
+const selectedColumnId = ref('')
+
+// 计算属性：获取当前选择的专栏评语
+const filteredComments = computed(() => {
+  if (!selectedColumnId.value) {
+    return myComments.value
+  }
+  return myComments.value.filter(comment => comment.columnId === selectedColumnId.value)
+})
+
+// 计算属性：获取当前选择的专栏名称
+const selectedColumnName = computed(() => {
+  if (!selectedColumnId.value) return '全部专栏'
+  const column = columns.value.find(c => c.id === selectedColumnId.value)
+  return column ? column.name : '全部专栏'
+})
 
 // 查看详情模态框相关变量
 const showDetailsModal = ref(false)
 const selectedComment = ref(null)
 const selectedCommentColumn = ref('')
-const selectedColumnImages = ref([])
+const selectedColumnImages = shallowRef([])
 
 // 智能问答相关变量
 const conversations = ref([])
@@ -544,6 +572,17 @@ const getColumnById = (id) => {
 const formatDate = (dateString) => {
   const date = new Date(dateString)
   return date.toLocaleDateString('zh-CN')
+}
+
+// 格式化内容，将换行符转换为<br>标签
+const formatContent = (content) => {
+  if (!content) return ''
+  // 将换行符转换为<br>标签，并转义HTML特殊字符
+  return content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')
 }
 
 // 切换显示区域
@@ -701,7 +740,7 @@ const cancelEditFeedback = (commentId) => {
 }
 
 // 显示评语详情
-const  showCommentDetails = (comment) => {
+const showCommentDetails = (comment) => {
   selectedComment.value = comment
   const column = getColumnById(comment.columnId)
   selectedCommentColumn.value = column?.name || '未知专栏'
@@ -722,15 +761,20 @@ const  showCommentDetails = (comment) => {
         imagePath.toLowerCase() !== 'undefined' &&
         imagePath.toLowerCase() !== '无'
       ) {
-        // 确保图片路径是完整的URL，添加缺少的斜杠
-        const imageUrl = imagePath.startsWith('http') ? imagePath : `http://localhost:5000/${imagePath}`
+        // 确保图片路径是完整的URL
+        let imageUrl
+        if (imagePath.startsWith('http')) {
+          imageUrl = imagePath
+        } else if (imagePath.startsWith('/')) {
+          // 路径以 / 开头，直接拼接
+          imageUrl = `http://localhost:5000${imagePath}`
+        } else {
+          // 路径不以 / 开头，添加 /
+          imageUrl = `http://localhost:5000/${imagePath}`
+        }
         selectedColumnImages.value.push(imageUrl)
       }
     }
-  }
-  // 确保数组是安全的
-  if (!selectedColumnImages.value) {
-    selectedColumnImages.value = []
   }
   
   showDetailsModal.value = true
@@ -742,6 +786,18 @@ const closeDetailsModal = () => {
   selectedComment.value = null
   selectedCommentColumn.value = ''
   selectedColumnImages.value = []
+}
+
+// 处理图片加载错误
+const handleImageError = (event, imageUrl) => {
+  console.error('图片加载失败:', imageUrl)
+  // 使用 data-attribute 标记已处理，避免重复触发
+  if (event.target.dataset.errorHandled) return
+  event.target.dataset.errorHandled = 'true'
+  
+  // 设置默认的错误占位图
+  event.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="150" viewBox="0 0 200 150"%3E%3Crect fill="%23f5f5f5" width="200" height="150"/%3E%3Ctext fill="%23999" font-family="Arial" font-size="14" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3E图片加载失败%3C/text%3E%3C/svg%3E'
+  event.target.alt = '图片加载失败'
 }
 
 // 提交反馈表单
@@ -1103,6 +1159,64 @@ onMounted(async () => {
   gap: 20px;
 }
 
+/* 专栏选择器样式 */
+.column-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.selector-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  white-space: nowrap;
+}
+
+.column-select {
+  flex: 1;
+  max-width: 300px;
+  padding: 10px 16px;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.column-select:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.column-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.selected-count {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 500;
+  padding: 6px 12px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -1142,6 +1256,195 @@ onMounted(async () => {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* 评语卡片样式 */
+.comment-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.comment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.comment-column {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.comment-date {
+  font-size: 12px;
+  color: #666;
+}
+
+.comment-content {
+  color: #333;
+  line-height: 1.8;
+  margin-bottom: 16px;
+  word-wrap: break-word;
+}
+
+.comment-actions {
+  margin-bottom: 16px;
+}
+
+.view-details-button {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.view-details-button:hover {
+  background: #5a6fd8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* 反馈区域样式 */
+.comment-feedback-section {
+  background: #f0f8ff;
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid #667eea;
+}
+
+.feedback-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.feedback-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  resize: vertical;
+  font-size: 14px;
+  margin-bottom: 12px;
+  min-height: 80px;
+}
+
+.submit-feedback-button {
+  background: #4ecdc4;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.submit-feedback-button:hover {
+  background: #45b7aa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(78, 205, 196, 0.3);
+}
+
+.feedback-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.feedback-display {
+  background: #f0fff4;
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid #4caf50;
+}
+
+.user-feedback-content {
+  color: #333;
+  line-height: 1.8;
+  margin-bottom: 12px;
+  word-wrap: break-word;
+}
+
+/* 总结评语样式 */
+.summary-comment-container {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.summary-comment-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.summary-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.summary-date {
+  font-size: 12px;
+  color: #666;
+}
+
+.summary-content {
+  color: #333;
+  line-height: 1.8;
+  word-wrap: break-word;
+}
+
+/* 无评语提示 */
+.no-comments {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.no-comments-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.no-comments h3 {
+  margin: 0 0 8px 0;
+  color: #666;
+}
+
+.no-comments p {
+  margin: 0;
+  font-size: 14px;
 }
 
 /* 智能问答容器样式 */
@@ -1297,7 +1600,7 @@ onMounted(async () => {
 
 .new-conversation-btn {
   width: 100%;
-  padding: 15px;
+  padding: 14px;
   background: none;
   border: none;
   cursor: pointer;
@@ -1532,550 +1835,103 @@ onMounted(async () => {
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
-.new-conversation-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-/* 滚动条样式 */
-.chat-messages::-webkit-scrollbar,
-.conversation-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track,
-.conversation-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb,
-.conversation-list::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb:hover,
-.conversation-list::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* 智能问答容器阴影效果 */
-.smart-qa-container {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  overflow: hidden;
-  transition: box-shadow 0.3s;
-}
-
-.smart-qa-container:hover {
-  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.12);
-}
-
-/* 总结评语样式 */
-.summary-comment-container {
-  margin-top: 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.summary-comment-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 12px;
-  padding: 24px;
-}
-
-.summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.summary-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.summary-date {
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-.summary-content {
-  font-size: 16px;
-  line-height: 1.8;
-  opacity: 0.9;
-}
-
-.comment-card {
-  background: #f5f7fa;
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.comment-column {
-  font-size: 18px;
-  font-weight: 600;
-  color: #667eea;
-  margin: 0;
-}
-
-.comment-date {
-  font-size: 14px;
-  color: #999;
-}
-
-.comment-content {
-  font-size: 16px;
-  color: #333;
-  line-height: 1.8;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-family: 'Microsoft YaHei', Arial, sans-serif;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-/* 反馈区域样式 */
-.comment-feedback-section {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.feedback-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 12px;
-}
-
-.feedback-input {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  resize: vertical;
-  margin-bottom: 12px;
-  font-family: inherit;
-}
-
-.feedback-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.submit-feedback-button {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.submit-feedback-button:hover:not(:disabled) {
-  background: #5568d3;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.submit-feedback-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 用户反馈内容样式 */
-.user-feedback-content {
-  font-size: 16px;
-  color: #333;
-  line-height: 1.8;
-  margin-bottom: 15px;
-  padding: 15px;
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-family: 'Microsoft YaHei', Arial, sans-serif;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-/* 评语操作按钮 */
-.comment-actions {
-  margin: 15px 0;
-}
-
-.view-details-button {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.view-details-button:hover {
-  background: #5568d3;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-/* 模态框样式 */
+/* 评语详情模态框样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   z-index: 1000;
 }
 
 .modal-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   width: 90%;
-  max-width: 800px;
+  max-width: 600px;
   max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 20px;
   color: #333;
+  font-size: 18px;
 }
 
 .modal-close {
   background: none;
   border: none;
   font-size: 24px;
-  cursor: pointer;
   color: #999;
+  cursor: pointer;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.3s ease;
+  border-radius: 50%;
+  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
-  background: #f5f7fa;
+  background: #f5f5f5;
   color: #333;
 }
 
 .modal-body {
-  padding: 20px;
-  overflow-y: auto;
-  max-height: calc(90vh - 70px);
+  padding: 24px;
 }
 
 .column-info {
   margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e0e0e0;
 }
 
 .column-info h4 {
-  margin: 0 0 10px 0;
-  font-size: 18px;
-  color: #667eea;
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .column-info p {
   margin: 0;
-  font-size: 14px;
-  color: #999;
+  color: #666;
+  font-size: 13px;
 }
 
 .images-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-top: 20px;
 }
 
 .image-item {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: transform 0.3s ease;
-}
-
-.image-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  flex: 1 1 calc(50% - 8px);
+  min-width: 200px;
 }
 
 .column-image {
   width: 100%;
   height: auto;
-  display: block;
-}
-
-.no-images {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.no-images-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.no-images p {
-  font-size: 16px;
-  margin: 0;
-}
-
-/* 反馈按钮容器样式 */
-.feedback-buttons {
-  display: flex;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-/* 个人资料样式 */
-.profile-container {
-  display: flex;
-  justify-content: center;
-}
-
-.profile-info {
-  display: flex;
-  gap: 32px;
-  align-items: center;
-  max-width: 600px;
-  width: 100%;
-}
-
-.profile-avatar {
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-icon {
-  font-size: 64px;
-}
-
-.profile-details {
-  flex: 1;
-}
-
-.profile-item {
-  display: flex;
-  margin-bottom: 16px;
-  align-items: center;
-}
-
-.profile-label {
-  width: 80px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #666;
-}
-
-.profile-value {
-  font-size: 16px;
-  color: #333;
-  font-weight: 500;
-}
-
-/* 反馈表单样式 */
-.feedback-form-container {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
-.form-select {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 14px;
-}
-
-.form-select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-textarea {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.form-textarea:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.submit-button {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.submit-button:hover:not(:disabled) {
-  background: #5568d3;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.submit-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 无数据样式 */
-.no-comments {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.no-comments-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.no-comments h3 {
-  font-size: 24px;
-  margin: 0 0 8px 0;
-  color: #666;
-}
-
-.no-comments p {
-  font-size: 16px;
-  margin: 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .dashboard-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: 60px 1fr;
-    grid-template-areas: 
-      "header"
-      "main";
-  }
-
-  .side-navigation {
-    display: none;
-  }
-
-  .top-navigation {
-    padding: 0 10px;
-  }
-
-  .logo-text {
-    font-size: 16px;
-  }
-
-  .user-name {
-    display: none;
-  }
-
-  .main-content {
-    padding: 10px;
-  }
-
-  .section-container {
-    padding: 15px;
-  }
-
-  .profile-info {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .profile-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .profile-label {
-    width: 100%;
-    margin-bottom: 4px;
-  }
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 </style>

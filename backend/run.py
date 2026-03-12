@@ -27,7 +27,7 @@ if __name__ == '__main__':
         # 初始化数据库
         print("Initializing database...")
         with app.app_context():
-            from models import db
+            from config import db
             try:
                 db.create_all()
                 print("数据库表创建成功")

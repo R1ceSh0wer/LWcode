@@ -14,6 +14,8 @@ class ExamColumn(db.Model):
     question_image_path4 = db.Column(db.String(200))  # 试题截图4
     question_image_path5 = db.Column(db.String(200))  # 试题截图5
     question_image_path6 = db.Column(db.String(200))  # 试题截图6
-    question_text = db.Column(db.Text)  # OCR识别出的题目
+    question_text = db.Column(db.Text)  # OCR 识别出的题目
+    question_knowledge = db.Column(db.Text)  # 知识点映射（JSON 格式）
+    archive_id = db.Column(db.Integer, db.ForeignKey('model_archives.id'))  # 关联的存档 ID
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=datetime.now)

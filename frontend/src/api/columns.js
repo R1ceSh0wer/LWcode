@@ -48,6 +48,8 @@ export const addColumn = async (columnData) => {
       // 添加普通字段
       formData.append('name', columnData.name);
       formData.append('teacherId', columnData.teacherId || 1);
+      formData.append('archiveId', columnData.archiveId || '');
+      
       
       // 添加图片文件
       columnData.imageFiles.forEach((file, index) => {

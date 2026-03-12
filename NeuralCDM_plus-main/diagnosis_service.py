@@ -71,10 +71,22 @@ device = torch.device(('cuda:'+str(gpu_n)) if torch.cuda.is_available() else 'cp
 def load_model(model_path):
     model = NeuralCDMNet().to(device)
     if os.path.exists(model_path):
-        checkpoint = torch.load(model_path, map_location=device, weights_only=True)
-        model.load_state_dict(checkpoint)
-        model.eval()
-        return model
+        try:
+            checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+            # 尝试不同的键名
+            if 'state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['state_dict'])
+            elif 'model_state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                model.load_state_dict(checkpoint)
+            model.eval()
+            return model
+        except Exception as e:
+            print(f'[ERROR] 加载模型失败: {str(e)}')
+            import traceback
+            traceback.print_exc()
+            return None
     return None
 
 def predict(model, student_id, exercise_ids, knowledge_codes):

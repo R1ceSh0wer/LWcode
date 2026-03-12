@@ -1,8 +1,9 @@
 from flask import jsonify, request, current_app
 from datetime import datetime
 import requests
-from models import db, User, Conversation, Message
-from app.conversations import bp
+from .models import Conversation, Message
+from ..users.models import db, User
+from . import bp
 
 
 @bp.route('/qa/conversations', methods=['POST'])
@@ -110,7 +111,7 @@ def ask_question():
     try:
         # 调用Dify API
         dify_response = requests.post(
-            'https://api.dify.ai/v1/chat-messages',
+            'http://localhost:83/v1/chat-messages',
             headers={
                 'Authorization': f'Bearer {current_app.config.get("DIFY_API_KEY", "")}',
                 'Content-Type': 'application/json'
@@ -228,7 +229,7 @@ def rename_conversation(conversation_id):
             # 调用Dify API自动生成名称
             if conversation.dify_conversation_id:
                 dify_response = requests.post(
-                    f'https://api.dify.ai/v1/conversations/{conversation.dify_conversation_id}/name',
+                    f'http://localhost:83/v1/conversations/{conversation.dify_conversation_id}/name',
                     headers={
                         'Authorization': f'Bearer {current_app.config.get("DIFY_API_KEY", "")}',
                         'Content-Type': 'application/json'

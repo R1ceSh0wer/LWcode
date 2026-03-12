@@ -1,0 +1,83 @@
+============================================================
+发送给Dify智能体的请求内容
+============================================================
+
+API地址: http://localhost:83/v1/chat-messages
+
+Headers:
+{
+  "Authorization": "Bearer ********************",
+  "Content-Type": "application/json"
+}
+
+Payload:
+{
+  "query": "{\"diagnosis\": {\"student_name\": \"了毛闹\", \"average_prediction\": 0.9654, \"accuracy\": 0.6667, \"knowledge_mastery\": {\"124\": {\"predicted_mastery\": 0.9654, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2988}, \"123\": {\"predicted_mastery\": 0.9654, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2988}, \"73\": {\"predicted_mastery\": 0.9654, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2988}}, \"strengths\": [], \"weaknesses\": []}, \"knowledge_names\": {\"73\": \"赋值语句\", \"123\": \"信息技术及其影响\", \"124\": \"信息技术发展脉络与趋势\"}, \"more\": {}}",
+  "inputs": {
+    "diagnosis": {
+      "student_name": "了毛闹",
+      "average_prediction": 0.9654,
+      "accuracy": 0.6667,
+      "knowledge_mastery": {
+        "124": {
+          "predicted_mastery": 0.9654,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.2988
+        },
+        "123": {
+          "predicted_mastery": 0.9654,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.2988
+        },
+        "73": {
+          "predicted_mastery": 0.9654,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.2988
+        }
+      },
+      "strengths": [],
+      "weaknesses": []
+    },
+    "knowledge_names": {
+      "73": "赋值语句",
+      "123": "信息技术及其影响",
+      "124": "信息技术发展脉络与趋势"
+    },
+    "more": {}
+  },
+  "response_mode": "streaming",
+  "user": "teacher"
+}
+
+诊断数据 (格式化):
+{
+  "student_name": "了毛闹",
+  "average_prediction": 0.9654,
+  "accuracy": 0.6667,
+  "knowledge_mastery": {
+    "124": {
+      "predicted_mastery": 0.9654,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.2988
+    },
+    "123": {
+      "predicted_mastery": 0.9654,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.2988
+    },
+    "73": {
+      "predicted_mastery": 0.9654,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.2988
+    }
+  },
+  "strengths": [],
+  "weaknesses": []
+}
+
+知识点名称:
+{
+  "73": "赋值语句",
+  "123": "信息技术及其影响",
+  "124": "信息技术发展脉络与趋势"
+}

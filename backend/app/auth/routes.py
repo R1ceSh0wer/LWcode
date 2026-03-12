@@ -1,6 +1,6 @@
 from flask import jsonify, request
-from models import db, User
-from app.auth import bp
+from ..users.models import db, User
+from . import bp
 
 
 @bp.route('/login', methods=['POST'])

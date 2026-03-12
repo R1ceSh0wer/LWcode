@@ -1,0 +1,11 @@
+{
+  "name": "initial_archive_20260310_180011",
+  "description": "初始模型存档",
+  "created_at": "2026-03-10T18:00:11.570077",
+  "source_files": [
+    "knowledge_mapping.txt",
+    "initial_archive_20260310_180011N",
+    "initial_archive_20260310_180011W"
+  ],
+  "status": "completed"
+}

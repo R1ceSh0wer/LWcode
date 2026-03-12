@@ -1,10 +1,11 @@
-from flask import Flask
+import os
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from config import Config, db
 
 
 def create_app(config_class=Config):
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=None)
     app.config.from_object(config_class)
     
     # 初始化数据库
@@ -12,6 +13,12 @@ def create_app(config_class=Config):
     
     # 启用CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+    
+    # 注册 uploads 文件夹的静态文件服务
+    @app.route('/uploads/<path:filename>')
+    def serve_upload(filename):
+        upload_folder = os.path.join(os.getcwd(), 'uploads')
+        return send_from_directory(upload_folder, filename)
     
     # 注册蓝图
     from app.auth import bp as auth_bp
@@ -37,5 +44,8 @@ def create_app(config_class=Config):
     
     from app.neo4j import bp as neo4j_bp
     app.register_blueprint(neo4j_bp)
+    
+    from app.archives import bp as archives_bp
+    app.register_blueprint(archives_bp)
     
     return app

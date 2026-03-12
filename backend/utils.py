@@ -146,7 +146,8 @@ def init_ocr_engine():
                     det_model_path=det_path,
                     rec_model_path=rec_path,
                     rec_keys_path=dict_path,
-                    intra_op_num_threads=14  # 增加线程数以提高性能
+                    intra_op_num_threads=14,  # 增加线程数以提高性能
+                    print_verbose=False  # 减少日志输出
                 )
                 print(f'[OCR] RapidOCR引擎初始化成功')
                 ocr_engine_initialized = True
@@ -214,6 +215,16 @@ def detect_question_numbers(image_path):
     """
     try:
         print(f'[INFO] 开始识别题号: {image_path}')
+        
+        # 检查文件是否存在
+        if not os.path.exists(image_path):
+            print(f'[ERROR] 图片文件不存在: {image_path}')
+            return []
+        
+        # 检查文件大小，如果太大则跳过
+        file_size = os.path.getsize(image_path)
+        if file_size > 10 * 1024 * 1024:  # 10MB
+            print(f'[WARN] 图片文件过大 ({file_size / 1024 / 1024:.2f}MB)，可能导致OCR识别缓慢')
         
         # 初始化OCR
         ocr_engine = init_ocr_engine()
@@ -542,10 +553,10 @@ def batch_compare_images(blank_image_paths, answer_image_paths, total_questions=
             all_results.update(result_dict)
             all_question_positions.extend(question_positions)
     
-    # 根据识别到的最大题号动态调整结果列表大小
+    # 根据识别到的最大题号确定实际总题数
     if all_results:
         max_q_num = max(all_results.keys())
-        actual_total = max(total_questions, max_q_num)
+        actual_total = max_q_num  # 只使用识别到的最大题号作为实际总题数
     else:
         actual_total = total_questions
     
@@ -1034,7 +1045,7 @@ def _call_netknowledge_service(text, model_path, top_k=5):
             input=json.dumps(input_data),
             capture_output=True,
             encoding='utf-8',
-            timeout=30
+            timeout=100
         )
         
         if result.returncode == 0:
@@ -1153,17 +1164,128 @@ def extract_question_texts_with_knowledge(image_path, ocr_engine, knowledge_mode
 def process_question_images_for_knowledge(image_paths, ocr_engine, knowledge_model):
     all_questions = {}
     all_knowledge = {}
+    last_question_num = None
     
-    for image_path in image_paths:
+    for i, image_path in enumerate(image_paths):
         if not image_path or image_path == '无':
             continue
         
-        questions, knowledge = extract_question_texts_with_knowledge(image_path, ocr_engine, knowledge_model)
+        print(f'[INFO] 处理第{i+1}页: {image_path}')
         
-        for q_num, q_text in questions.items():
-            if q_num not in all_questions:
+        # 获取OCR结果
+        ocr_result = None
+        try:
+            ocr_result = ocr_engine(image_path)
+            if isinstance(ocr_result, tuple):
+                ocr_result = ocr_result[0]
+        except Exception as e:
+            print(f'[WARN] 获取OCR结果失败: {str(e)}')
+            continue
+        
+        if not ocr_result or len(ocr_result) == 0:
+            print(f'[WARN] OCR未识别到任何文本')
+            continue
+        
+        # 提取文本和位置信息
+        texts_with_positions = []
+        for item in ocr_result:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                box = item[0]
+                text = str(item[1]).strip()
+                
+                if isinstance(box, (list, tuple)) and len(box) >= 2:
+                    if isinstance(box[0], (list, tuple)):
+                        y_coords = [float(point[1]) for point in box if len(point) >= 2]
+                        y = sum(y_coords) / len(y_coords)
+                    else:
+                        y = float(box[1])
+                    texts_with_positions.append((y, text))
+        
+        texts_with_positions.sort(key=lambda x: x[0])
+        
+        question_pattern = re.compile(r'^\s*(\d+)\s*[.．)）、,，]?\s*(.*)')
+        
+        # 分离前导文本和题目文本
+        leading_text = []
+        question_texts = []
+        found_first_question = False
+        
+        for y, text in texts_with_positions:
+            if not found_first_question and question_pattern.match(text):
+                found_first_question = True
+                question_texts.append((y, text))
+            elif found_first_question:
+                question_texts.append((y, text))
+            else:
+                leading_text.append(text)
+        
+        # 处理题目文本
+        current_question = None
+        current_text = []
+        page_questions = {}
+        
+        for y, text in question_texts:
+            match = question_pattern.match(text)
+            if match:
+                # 遇到新的题号
+                if current_question is not None:
+                    # 保存当前题目
+                    page_questions[current_question] = ''.join(current_text)
+                
+                # 开始新题目
+                current_question = int(match.group(1))
+                remaining = match.group(2)
+                current_text = [remaining] if remaining else []
+            elif current_question is not None:
+                # 追加到当前题目
+                current_text.append(text)
+        
+        # 保存最后一个题目
+        if current_question is not None and current_text:
+            page_questions[current_question] = ''.join(current_text)
+        
+        print(f'[INFO] 第{i+1}页识别到 {len(page_questions)} 道题目: {list(page_questions.keys())}')
+        if leading_text:
+            print(f'[INFO] 第{i+1}页有 {len(leading_text)} 行前导文本')
+        
+        # 处理分页逻辑
+        if i == 0:
+            # 第一页，直接添加所有题目
+            for q_num, q_text in page_questions.items():
                 all_questions[q_num] = q_text
-                all_knowledge[q_num] = knowledge.get(q_num, [])
+                all_knowledge[q_num] = []  # 后续会预测知识点
+            
+            # 更新最后一个题目
+            if page_questions:
+                last_question_num = max(page_questions.keys())
+                print(f'[INFO] 第一页最后一个题目: {last_question_num}')
+        else:
+            # 非第一页
+            # 处理前导文本
+            if leading_text and last_question_num is not None:
+                # 将前导文本追加到上一个题目
+                leading_text_str = ''.join(leading_text)
+                all_questions[last_question_num] += leading_text_str
+                print(f'[INFO] 将 {len(leading_text)} 行前导文本追加到第{last_question_num}题')
+            
+            # 添加新题目
+            for q_num, q_text in page_questions.items():
+                if q_num not in all_questions:
+                    all_questions[q_num] = q_text
+                    all_knowledge[q_num] = []  # 后续会预测知识点
+                    print(f'[INFO] 添加新题目: {q_num}')
+            
+            # 更新最后一个题目
+            if page_questions:
+                last_question_num = max(page_questions.keys())
+                print(f'[INFO] 当前页面最后一个题目: {last_question_num}')
+    
+    # 为所有题目预测知识点
+    if knowledge_model:
+        for q_num, q_text in all_questions.items():
+            knowledge_results = predict_knowledge_from_text(knowledge_model, q_text, top_k=3)
+            all_knowledge[q_num] = [r['knowledge_id'] for r in knowledge_results]
+            print(f'[INFO] 为第{q_num}题预测知识点: {all_knowledge[q_num]}')
     
     return all_questions, all_knowledge
 
@@ -1278,6 +1400,24 @@ def get_knowledge_names(knowledge_ids):
             result[k_id] = mapping.get(k_id, mapping.get(int(k_id) if k_id.isdigit() else k_id, f'知识点{k_id}'))
     return result
 
+def clean_think_tags(text):
+    """移除 <think> 和 </think> 标签及其内容"""
+    import re
+    if not text:
+        return text
+    result = text
+    # 首先移除完整的 <think>...</think> 标签对
+    for _ in range(10):
+        old = result
+        result = re.sub(r'<think>[\s\S]*?</think>', '', result)
+        if old == result:
+            break
+    # 然后移除单独的 <think> 或 </think> 标签
+    result = re.sub(r'</?think>', '', result)
+    # 清理多余的空白字符
+    result = re.sub(r'\s+', ' ', result).strip()
+    return result
+
 def build_diagnosis_data(student_name, exercise_ids, predictions, actual_scores, knowledge_codes):
     valid_predictions = []
     valid_actuals = []
@@ -1356,22 +1496,23 @@ def call_dify_agent(diagnosis_data, knowledge_names, dify_api='http://localhost:
         'Content-Type': 'application/json'
     }
     
-    query_prompt = f"""请为学生 {diagnosis_data.get('student_name', '未知')} 生成学习评语。
-学生的平均预测掌握度: {diagnosis_data.get('average_prediction', 0)}
-学生的实际正确率: {diagnosis_data.get('accuracy', 0)}
-优势知识点: {diagnosis_data.get('strengths', [])}
-薄弱知识点: {diagnosis_data.get('weaknesses', [])}
-知识点名称: {json.dumps(knowledge_names, ensure_ascii=False)}"""
+    # 构建 inputs 数据
+    inputs_data = {
+        'diagnosis': diagnosis_data,
+        'knowledge_names': knowledge_names,
+        'more': {}
+    }
     
+    # 构建请求 payload，将 inputs 作为 query 发送
     payload = {
-        'inputs': {
-            'diagnosis': diagnosis_data,
-            'knowledge_names': knowledge_names
-        },
-        'query': query_prompt,
-        'response_mode': 'blocking',
+        'query': json.dumps(inputs_data, ensure_ascii=False),
+        'inputs': inputs_data,
+        'response_mode': 'streaming',  # 改为流式处理
         'user': 'teacher'
     }
+    
+    # 打印 payload 结构以调试
+    print(f'[Dify] 构建的 payload: {json.dumps(payload, ensure_ascii=False)}')
     
     print(f'[Dify] 调用Dify智能体: {dify_api}')
     
@@ -1394,24 +1535,62 @@ def call_dify_agent(diagnosis_data, knowledge_names, dify_api='http://localhost:
     print(f'[Dify] 请求内容已保存到: {debug_file}')
     
     try:
+        print(f'[Dify] 正在发送流式请求...')
         response = requests.post(
             f'{dify_api}/chat-messages',
             headers=headers,
             json=payload,
-            timeout=60
+            stream=True,  # 开启流式请求
+            timeout=500  # 流式请求的超时时间
         )
         
         print(f'[Dify] 响应状态码: {response.status_code}')
         if response.status_code == 200:
-            result = response.json()
-            answer = result.get('answer', '')
-            print(f'[Dify] 成功获取评语: {answer[:50]}...')
-            return answer
+            print(f'[Dify] 开始接收流式响应...')
+            full_answer = ""
+            for chunk in response.iter_lines():
+                if chunk:
+                    # 处理每个数据块
+                    chunk_str = chunk.decode('utf-8')
+                    # 检查是否是数据块开头
+                    if chunk_str.startswith('data: '):
+                        data_str = chunk_str[6:]  # 去掉 'data: ' 前缀
+                        if data_str == '[DONE]':
+                            break  # 流结束
+                        try:
+                            data = json.loads(data_str)
+                            # 提取文本内容
+                            if 'answer' in data:
+                                chunk_text = data['answer']
+                                full_answer += chunk_text
+                        except json.JSONDecodeError:
+                            print(f'[Dify] 解析数据块失败: {data_str}')
+            
+            if full_answer:
+                # 对完整文本进行最终清理，确保所有 <think></think> 标签都被去除
+                final_clean_answer = clean_think_tags(full_answer)
+                print(f'[Dify] 原始文本: {full_answer[:100]}...')
+                print(f'[Dify] 清理后文本: {final_clean_answer[:100]}...')
+                print(f'[Dify] 成功获取完整评语: {final_clean_answer[:50]}...')
+                return final_clean_answer
+            else:
+                print(f'[Dify] 未接收到有效内容')
+                return None
         else:
             print(f'[Dify] API调用失败: {response.status_code} - {response.text}')
             return None
+    except requests.exceptions.Timeout as e:
+        print(f'[ERROR] 调用Dify智能体超时: {e}')
+        print(f'[ERROR] 请检查Dify服务是否正常运行')
+        return None
+    except requests.exceptions.ConnectionError as e:
+        print(f'[ERROR] 连接Dify服务失败: {e}')
+        print(f'[ERROR] 请检查网络连接和Dify服务状态')
+        return None
     except Exception as e:
         print(f'[ERROR] 调用Dify智能体失败: {e}')
+        import traceback
+        traceback.print_exc()
         return None
 
 def generate_comment_with_dify(student_name, exercise_ids, predictions, actual_scores, knowledge_codes, dify_api='http://localhost:83/v1'):

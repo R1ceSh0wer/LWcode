@@ -41,7 +41,7 @@ class Config:
     
     # 上传文件配置
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'uploads'))  # 文件上传目录
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 最大上传文件大小：16MB
+    MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 最大上传文件大小：500MB
     ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'png,jpg,jpeg,gif').split(','))  # 允许上传的文件类型
     
     # API配置
@@ -56,7 +56,7 @@ class Config:
     TESSERACT_CMD = os.getenv('TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe')  # Tesseract可执行文件路径
     
     # Dify AI配置
-    DIFY_API_KEY = os.getenv('DIFY_API_KEY', '')  # Dify 对话智能体API密钥
+    DIFY_API_KEY = os.getenv('DIFY_API_KEY', 'app-rS3rKf3JVLMVdYCnAcsoF141')  # Dify 对话智能体API密钥
     DIFY_COMMENT_API_KEY = os.getenv('DIFY_COMMENT_API_KEY', 'app-Hrra4alKn8tM7nOwlYnQ8WyR')  # Dify 评语生成智能体API密钥
 
 # 初始化数据库

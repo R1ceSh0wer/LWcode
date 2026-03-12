@@ -1,7 +1,7 @@
 from flask import jsonify, request
-from models import db, User, StudentInfo
+from ..users.models import db, User, StudentInfo
 from neo4j_service import neo4j_conn
-from app.students import bp
+from . import bp
 
 
 @bp.route('/students', methods=['GET'])

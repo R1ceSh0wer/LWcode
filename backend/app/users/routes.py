@@ -1,10 +1,12 @@
 from flask import jsonify, request, send_from_directory, current_app
 from datetime import datetime
-from models import db, User, StudentInfo
+from .models import db, User, StudentInfo
+from ..comments.models import Comment, SummaryComment
+from ..columns.models import ExamColumn
 from neo4j_service import neo4j_conn
 import os
 import openpyxl
-from app.users import bp
+from . import bp
 
 
 @bp.route('/accounts', methods=['GET'])
@@ -17,9 +19,15 @@ def get_accounts():
             account_data = {
                 'id': str(account.id),
                 'username': account.username,
-                'role': account.role,
-                'created_at': account.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'role': account.role
             }
+            
+            # 只在字段存在时添加 created_at
+            if hasattr(account, 'created_at') and account.created_at:
+                try:
+                    account_data['created_at'] = account.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                except:
+                    pass
             
             if account.role == 'student' and account.student_info:
                 account_data['grade'] = account.student_info.grade
@@ -31,6 +39,7 @@ def get_accounts():
         
         return jsonify(result)
     except Exception as e:
+        print(f"获取账号列表失败：{str(e)}")
         return jsonify({'success': False, 'message': f'获取账号列表失败：{str(e)}'}), 500
 
 
@@ -46,6 +55,19 @@ def create_account():
         db.session.add(new_account)
         db.session.commit()
         
+        response_data = {
+            'id': str(new_account.id),
+            'username': new_account.username,
+            'role': new_account.role
+        }
+        
+        # 只在字段存在时添加 created_at
+        if hasattr(new_account, 'created_at') and new_account.created_at:
+            try:
+                response_data['created_at'] = new_account.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+        
         if new_account.role == 'student':
             student_info = StudentInfo(
                 user_id=new_account.id,
@@ -57,24 +79,23 @@ def create_account():
             db.session.add(student_info)
             db.session.commit()
             
-            neo4j_conn.create_node(
-                'Student',
-                {
-                    'student_id': str(new_account.id),
-                    'name': data.get('name'),
-                    'grade': data.get('grade'),
-                    'student_number': data.get('studentNumber'),
-                    'features': data.get('features')
-                }
-            )
+            try:
+                neo4j_conn.create_node(
+                    'Student',
+                    {
+                        'student_id': str(new_account.id),
+                        'name': data.get('name'),
+                        'grade': data.get('grade'),
+                        'student_number': data.get('studentNumber'),
+                        'features': data.get('features')
+                    }
+                )
+            except Exception as neo4j_error:
+                print(f"Neo4j创建学生节点失败: {str(neo4j_error)}")
         
-        return jsonify({
-            'id': str(new_account.id),
-            'username': new_account.username,
-            'role': new_account.role,
-            'created_at': new_account.created_at.strftime('%Y-%m-%d %H:%M:%S')
-        }), 201
+        return jsonify(response_data), 201
     except Exception as e:
+        print(f"创建账号失败：{str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'message': f'创建账号失败：{str(e)}'}), 500
 
@@ -90,26 +111,33 @@ def delete_account(id):
             if account.student_info:
                 db.session.delete(account.student_info)
             
-            comments = Comment.query.filter_by(student_id=id).all()
-            for comment in comments:
-                db.session.delete(comment)
-            
-            summary_comments = SummaryComment.query.filter_by(student_id=id).all()
-            for summary_comment in summary_comments:
-                db.session.delete(summary_comment)
-        elif account.role == 'teacher':
-            columns = ExamColumn.query.filter_by(teacher_id=id).all()
-            for column in columns:
-                comments = Comment.query.filter_by(column_id=column.id).all()
+            try:
+                comments = Comment.query.filter_by(student_id=id).all()
                 for comment in comments:
                     db.session.delete(comment)
-                db.session.delete(column)
+                
+                summary_comments = SummaryComment.query.filter_by(student_id=id).all()
+                for summary_comment in summary_comments:
+                    db.session.delete(summary_comment)
+            except Exception as e:
+                print(f"删除学生相关数据失败：{str(e)}")
+        elif account.role == 'teacher':
+            try:
+                columns = ExamColumn.query.filter_by(teacher_id=id).all()
+                for column in columns:
+                    comments = Comment.query.filter_by(column_id=column.id).all()
+                    for comment in comments:
+                        db.session.delete(comment)
+                    db.session.delete(column)
+            except Exception as e:
+                print(f"删除教师相关数据失败：{str(e)}")
         
         db.session.delete(account)
         db.session.commit()
         
         return jsonify({'success': True, 'message': '账号已删除'})
     except Exception as e:
+        print(f"删除账号失败：{str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'message': f'删除账号失败：{str(e)}'}), 500
 
@@ -244,6 +272,7 @@ def batch_add_accounts():
             'failures': failures
         })
     except Exception as e:
+        print(f"批量添加账号失败：{str(e)}")
         return jsonify({'success': False, 'message': f'批量添加账号失败：{str(e)}'}), 500
 
 
@@ -264,6 +293,19 @@ def update_account(id):
         
         db.session.commit()
         
+        response_data = {
+            'id': str(account.id),
+            'username': account.username,
+            'role': account.role
+        }
+        
+        # 只在字段存在时添加 created_at
+        if hasattr(account, 'created_at') and account.created_at:
+            try:
+                response_data['created_at'] = account.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+        
         if account.role == 'student':
             student_info = StudentInfo.query.filter_by(user_id=account.id).first()
             if not student_info:
@@ -281,24 +323,23 @@ def update_account(id):
             
             db.session.commit()
             
-            neo4j_conn.update_node(
-                'Student',
-                'student_id',
-                id,
-                {
-                    'name': data.get('name', ''),
-                    'grade': data.get('grade', ''),
-                    'student_number': data.get('studentNumber', ''),
-                    'features': data.get('features', '')
-                }
-            )
+            try:
+                neo4j_conn.update_node(
+                    'Student',
+                    'student_id',
+                    id,
+                    {
+                        'name': data.get('name', ''),
+                        'grade': data.get('grade', ''),
+                        'student_number': data.get('studentNumber', ''),
+                        'features': data.get('features', '')
+                    }
+                )
+            except Exception as neo4j_error:
+                print(f"Neo4j更新学生节点失败: {str(neo4j_error)}")
         
-        return jsonify({
-            'id': str(account.id),
-            'username': account.username,
-            'role': account.role,
-            'created_at': account.created_at.strftime('%Y-%m-%d %H:%M:%S')
-        })
+        return jsonify(response_data)
     except Exception as e:
+        print(f"更新账号失败：{str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'message': f'更新账号失败：{str(e)}'}), 500

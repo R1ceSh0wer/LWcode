@@ -28,6 +28,10 @@ class Comment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     addition = db.Column(db.Text)  # 附加评语
 
+    answer_result = db.Column(db.Text)  # 答案对错结果
+    cdm_predictions = db.Column(db.Text)  # 神经认知诊断模型预测结果
+    student_proficiency = db.Column(db.Float)  # 学生能力水平
+
     column = db.relationship('ExamColumn', backref='comments')
     student = db.relationship('User', backref='comments')
 
