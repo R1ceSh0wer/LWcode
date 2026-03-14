@@ -138,7 +138,7 @@ def convert_to_net_knowledge(questions, knowledge_map):
     net_knowledge_data = []
     exer_id_map = {}
     
-    for idx, question in tqdm(enumerate(questions), desc="转换题目数据"):
+    for question in tqdm(questions, desc="转换题目数据"):
         # 获取题目ID
         q_id = question['id']
         
@@ -164,15 +164,18 @@ def convert_to_net_knowledge(questions, knowledge_map):
         if not knowledge_codes:
             continue
         
+        # 直接使用原始题目ID作为exer_id
+        exer_id = q_id
+        
         # 添加到数据
         net_knowledge_data.append({
-            'exer_id': idx + 1,
+            'exer_id': exer_id,
             'text': segmented_text,
             'knowledge_code': knowledge_codes
         })
         
-        # 建立题目ID映射
-        exer_id_map[q_id] = idx + 1
+        # 建立题目ID映射（这里exer_id就是q_id，所以映射关系是q_id -> q_id）
+        exer_id_map[q_id] = exer_id
     
     print(f"共转换 {len(net_knowledge_data)} 道题目")
     return net_knowledge_data, exer_id_map
