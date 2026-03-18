@@ -5,11 +5,12 @@ const API_BASE_URL = 'http://localhost:5000/api'
 // 获取学生评语列表
 export const getStudentComments = async (studentId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/comments?studentId=${studentId}`)
+    const url = studentId ? `${API_BASE_URL}/comments?studentId=${studentId}` : `${API_BASE_URL}/comments`
+    const response = await axios.get(url)
     return response.data
   } catch (error) {
-    console.error(`获取学生${studentId}评语列表失败:`, error)
-    return []
+    console.error(`获取学生${studentId || ''}评语列表失败:`, error)
+    return { success: false, data: [], message: '获取评语列表失败' }
   }
 }
 
@@ -20,7 +21,7 @@ export const getCommentById = async (id) => {
     return response.data
   } catch (error) {
     console.error(`获取评语${id}信息失败:`, error)
-    return null
+    return { success: false, data: null, message: '获取评语信息失败' }
   }
 }
 
@@ -31,7 +32,7 @@ export const generateComment = async (commentData) => {
     return response.data
   } catch (error) {
     console.error('生成评语失败:', error)
-    return null
+    return { success: false, data: null, message: '生成评语失败' }
   }
 }
 
@@ -42,7 +43,7 @@ export const generateSummaryComment = async (studentId) => {
     return response.data
   } catch (error) {
     console.error(`生成学生${studentId}总结评语失败:`, error)
-    return null
+    return { success: false, data: null, message: '生成总结评语失败' }
   }
 }
 
@@ -53,7 +54,7 @@ export const getSummaryComment = async (studentId) => {
     return response.data
   } catch (error) {
     console.error(`获取学生${studentId}总结评语失败:`, error)
-    return null
+    return { success: false, data: null, message: '获取总结评语失败' }
   }
 }
 
@@ -64,7 +65,7 @@ export const createComment = async (commentData) => {
     return response.data
   } catch (error) {
     console.error('创建评语记录失败:', error)
-    return null
+    return { success: false, data: null, message: '创建评语记录失败' }
   }
 }
 
@@ -75,7 +76,7 @@ export const submitFeedback = async (commentId, feedback) => {
     return response.data
   } catch (error) {
     console.error(`提交评语${commentId}反馈失败:`, error)
-    return null
+    return { success: false, data: null, message: '提交反馈失败' }
   }
 }
 
@@ -86,6 +87,6 @@ export const deleteComment = async (commentId) => {
     return response.data
   } catch (error) {
     console.error(`删除评语${commentId}失败:`, error)
-    return null
+    return { success: false, data: null, message: '删除评语失败' }
   }
 }

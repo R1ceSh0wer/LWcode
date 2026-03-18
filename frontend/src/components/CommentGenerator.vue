@@ -278,14 +278,11 @@ const generateComment = async () => {
       focusAreas: focusAreasList
     })
 
-    if (result.success) {
-      alert('评语生成成功！')
-      closeModal()
-      // 刷新评语列表
-      await loadComments()
-    } else {
-      alert(result.message || '生成失败')
-    }
+    if (!result?.success) throw new Error(result?.message || '后端未返回评语结果')
+    alert('评语生成成功！')
+    closeModal()
+    // 刷新评语列表
+    await loadComments()
   } catch (error) {
     console.error('生成评语失败:', error)
     alert('生成评语失败: ' + error.message)
@@ -297,9 +294,7 @@ const generateComment = async () => {
 const loadStudents = async () => {
   try {
     const result = await getStudents()
-    if (result.success) {
-      students.value = result.data
-    }
+    students.value = result?.success ? (result.data || []) : []
   } catch (error) {
     console.error('加载学生列表失败:', error)
   }
@@ -308,9 +303,7 @@ const loadStudents = async () => {
 const loadColumns = async () => {
   try {
     const result = await getColumns()
-    if (result.success) {
-      columns.value = result.data
-    }
+    columns.value = result?.success ? (result.data || []) : []
   } catch (error) {
     console.error('加载专栏列表失败:', error)
   }
@@ -318,10 +311,8 @@ const loadColumns = async () => {
 
 const loadComments = async () => {
   try {
-    const result = await getStudentComments()
-    if (result.success) {
-      comments.value = result.data
-    }
+    const result = await getStudentComments(selectedStudentId.value || undefined)
+    comments.value = result?.success ? (result.data || []) : []
   } catch (error) {
     console.error('加载评语列表失败:', error)
   }

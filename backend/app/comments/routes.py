@@ -3,6 +3,7 @@ from datetime import datetime
 from .models import Comment, SummaryComment
 from ..users.models import db, User
 from ..columns.models import ExamColumn
+from app.api_response import ok, fail
 from utils import allowed_file, ocr_process, batch_ocr_process, call_ai_service, construct_comment_prompt, construct_summary_prompt, batch_compare_images, generate_comment_with_dify
 from neuralcdm_predict import load_neuralcdm_model, predict_student_performance, analyze_student_weaknesses, format_cdm_predictions
 import os
@@ -40,9 +41,9 @@ def get_comments():
                 'answerImagePath6': comment.answer_image_path6
             })
         
-        return jsonify(result)
+        return ok(result)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取评语列表失败：{str(e)}'}), 500
+        return fail(f'获取评语列表失败：{str(e)}', 500)
 
 
 @bp.route('/comments', methods=['POST'])
@@ -55,7 +56,7 @@ def create_comment():
         ).first()
         
         if existing_comment:
-            return jsonify({
+            return ok({
                 'id': str(existing_comment.id),
                 'columnId': str(existing_comment.column_id),
                 'studentId': str(existing_comment.student_id),
@@ -63,7 +64,7 @@ def create_comment():
                 'style': existing_comment.style,
                 'createdAt': existing_comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 'isRegenerated': existing_comment.is_regenerated
-            }), 200
+            })
         
         new_comment = Comment(
             column_id=data.get('columnId'),
@@ -74,7 +75,7 @@ def create_comment():
         db.session.add(new_comment)
         db.session.commit()
         
-        return jsonify({
+        return ok({
             'id': str(new_comment.id),
             'columnId': str(new_comment.column_id),
             'studentId': str(new_comment.student_id),
@@ -82,10 +83,10 @@ def create_comment():
             'style': new_comment.style,
             'createdAt': new_comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'isRegenerated': new_comment.is_regenerated
-        }), 201
+        }, status_code=201)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'创建评语失败：{str(e)}'}), 500
+        return fail(f'创建评语失败：{str(e)}', 500)
 
 
 @bp.route('/comments/<string:id>', methods=['GET'])
@@ -94,7 +95,7 @@ def get_comment(id):
         comment = Comment.query.filter_by(id=id).first()
         
         if comment:
-            return jsonify({
+            return ok({
                 'id': str(comment.id),
                 'columnId': str(comment.column_id),
                 'studentId': str(comment.student_id),
@@ -112,9 +113,9 @@ def get_comment(id):
                 'answerImagePath5': comment.answer_image_path5,
                 'answerImagePath6': comment.answer_image_path6
             })
-        return jsonify({'message': '评语不存在'}), 404
+        return fail('评语不存在', 404)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取评语信息失败：{str(e)}'}), 500
+        return fail(f'获取评语信息失败：{str(e)}', 500)
 
 
 @bp.route('/comments/<string:commentId>/feedback', methods=['POST'])
@@ -123,16 +124,16 @@ def submit_feedback(commentId):
     try:
         comment = Comment.query.filter_by(id=commentId).first()
         if not comment:
-            return jsonify({'success': False, 'message': '评语不存在'}), 404
+            return fail('评语不存在', 404)
         
         comment.feedback = data.get('feedback')
         comment.feedback_time = datetime.now()
         db.session.commit()
         
-        return jsonify({'success': True, 'message': '反馈已提交'})
+        return ok(None, message='反馈已提交')
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'提交反馈失败：{str(e)}'}), 500
+        return fail(f'提交反馈失败：{str(e)}', 500)
 
 
 @bp.route('/comments/<string:commentId>', methods=['DELETE'])
@@ -140,7 +141,7 @@ def delete_comment(commentId):
     try:
         comment = Comment.query.filter_by(id=commentId).first()
         if not comment:
-            return jsonify({'success': False, 'message': '评语不存在'}), 404
+            return fail('评语不存在', 404)
         
         image_paths_to_delete = []
         for i in range(1, 7):
@@ -162,10 +163,10 @@ def delete_comment(commentId):
             except Exception as image_error:
                 print(f'删除图片失败 {image_path}: {str(image_error)}')
         
-        return jsonify({'success': True, 'message': '评语和相关图片删除成功'}), 200
+        return ok(None, message='评语和相关图片删除成功')
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'删除评语失败：{str(e)}'}), 500
+        return fail(f'删除评语失败：{str(e)}', 500)
 
 
 @bp.route('/comments/<string:commentId>/regenerate', methods=['POST'])
@@ -176,13 +177,13 @@ def regenerate_comment(commentId, data=None):
     try:
         comment = Comment.query.filter_by(id=commentId).first()
         if not comment:
-            return jsonify({'success': False, 'message': '评语不存在'}), 404
+            return fail('评语不存在', 404)
         
         student = User.query.filter_by(id=comment.student_id).first()
         column = ExamColumn.query.filter_by(id=comment.column_id).first()
         
         if not student or not column:
-            return jsonify({'success': False, 'message': '学生或专栏信息不存在'}), 404
+            return fail('学生或专栏信息不存在', 404)
         
         # 从answer_result构建combined_answer_text
         answer_texts = []
@@ -206,17 +207,14 @@ def regenerate_comment(commentId, data=None):
         if data is not None:
             return comment
         
-        return jsonify({
-            'success': True,
-            'comment': {
-                'id': str(comment.id),
-                'content': comment.content,
-                'isRegenerated': comment.is_regenerated
-            }
+        return ok({
+            'id': str(comment.id),
+            'content': comment.content,
+            'isRegenerated': comment.is_regenerated
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'重新生成评语失败：{str(e)}'}), 500
+        return fail(f'重新生成评语失败：{str(e)}', 500)
 
 
 @bp.route('/summary-comments/<string:studentId>', methods=['GET'])
@@ -226,15 +224,15 @@ def get_summary_comment(studentId):
         summary = SummaryComment.query.filter_by(student_id=studentId).order_by(SummaryComment.created_at.desc()).first()
         
         if summary:
-            return jsonify({
+            return ok({
                 'id': str(summary.id),
                 'studentId': str(summary.student_id),
                 'content': summary.content,
                 'createdAt': summary.created_at.strftime('%Y-%m-%d %H:%M:%S')
             })
-        return jsonify({'message': '总结评语不存在'}), 404
+        return fail('总结评语不存在', 404)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取总结评语失败：{str(e)}'}), 500
+        return fail(f'获取总结评语失败：{str(e)}', 500)
 
 
 @bp.route('/summary-comments', methods=['POST'])
@@ -247,11 +245,11 @@ def create_summary_comment(studentId=None):
     try:
         student = User.query.filter_by(id=studentId, role='student').first()
         if not student:
-            return jsonify({'success': False, 'message': '学生不存在'}), 404
+            return fail('学生不存在', 404)
         
         comments = Comment.query.filter_by(student_id=studentId).all()
         if not comments:
-            return jsonify({'success': False, 'message': '还没有单科评语，无法生成总结'}), 400
+            return fail('还没有单科评语，无法生成总结', 400)
         
         prompt = construct_summary_prompt(student.student_info, comments)
         ai_result = call_ai_service(prompt, system_role="mentor")
@@ -263,15 +261,15 @@ def create_summary_comment(studentId=None):
         db.session.add(new_summary)
         db.session.commit()
         
-        return jsonify({
+        return ok({
             'id': str(new_summary.id),
             'studentId': str(new_summary.student_id),
             'content': new_summary.content,
             'createdAt': new_summary.created_at.strftime('%Y-%m-%d %H:%M:%S')
-        }), 201
+        }, status_code=201)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'生成总结评语失败：{str(e)}'}), 500
+        return fail(f'生成总结评语失败：{str(e)}', 500)
 
 
 @bp.route('/comments/generate', methods=['POST'])
@@ -294,11 +292,11 @@ def generate_comment():
     try:
         student = User.query.filter_by(id=student_id, role='student').first()
         if not student:
-            return jsonify({'success': False, 'message': '学生不存在'}), 404
+            return fail('学生不存在', 404)
         
         column = ExamColumn.query.filter_by(id=column_id).first()
         if not column:
-            return jsonify({'success': False, 'message': '专栏不存在'}), 404
+            return fail('专栏不存在', 404)
         
         existing_comment = Comment.query.filter_by(
             student_id=student_id,
@@ -618,7 +616,6 @@ def generate_comment():
                 
                 if dify_comment:
                     new_comment.content = dify_comment
-                    new_comment.is_regenerated = True
                     db.session.commit()
                     print(f'[Dify] 评语已保存至数据库')
                 else:
@@ -631,7 +628,6 @@ def generate_comment():
                         answer_texts.append(f"第{exer_id}题：实际={actual_str}，预测正确率={pred_str}")
                     default_comment = f"{student.username}在{column.title}的{style}风格评语：{'; '.join(answer_texts)}。整体掌握度：{avg_proficiency:.2%}，能力等级：{'优秀' if avg_proficiency > 0.7 else '良好' if avg_proficiency > 0.5 else '一般' if avg_proficiency > 0.3 else '需加强'}"
                     new_comment.content = default_comment
-                    new_comment.is_regenerated = True
                     db.session.commit()
                 
             else:
@@ -649,7 +645,6 @@ def generate_comment():
                             answer_texts.append(f"第{i+1}题：未识别")
                 default_comment = f"{student.username}在{column.title}的{style}风格评语：{'; '.join(answer_texts) if answer_texts else '无结果'}"
                 new_comment.content = default_comment
-                new_comment.is_regenerated = True
                 # 设置默认值
                 new_comment.cdm_predictions = str([])
                 new_comment.student_proficiency = 0.5
@@ -680,7 +675,6 @@ def generate_comment():
                         answer_texts.append(f"第{i+1}题：未识别")
             default_comment = f"{student.username}在{column.title}的{style}风格评语：{'; '.join(answer_texts) if answer_texts else '无结果'}"
             new_comment.content = default_comment
-            new_comment.is_regenerated = True
             # 设置默认值
             new_comment.cdm_predictions = str([])
             new_comment.student_proficiency = 0.5
@@ -719,7 +713,7 @@ def generate_comment():
             "answerImagePath6": updated_comment.answer_image_path6
         }
         
-        return jsonify({
+        return ok({
             'id': str(updated_comment.id),
             'columnId': str(updated_comment.column_id),
             'studentId': str(updated_comment.student_id),
@@ -732,7 +726,7 @@ def generate_comment():
             **answer_image_paths_dict,
             'createdAt': updated_comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'isRegenerated': updated_comment.is_regenerated
-        }), 201
+        }, status_code=201)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'生成评语失败：{str(e)}'}), 500
+        return fail(f'生成评语失败：{str(e)}', 500)

@@ -9,7 +9,7 @@ export const getAccounts = async () => {
     return response.data
   } catch (error) {
     console.error('获取账号列表失败:', error)
-    return []
+    return { success: false, data: [], message: '获取账号列表失败' }
   }
 }
 
@@ -20,7 +20,7 @@ export const addAccount = async (accountData) => {
     return response.data
   } catch (error) {
     console.error('添加账号失败:', error)
-    return null
+    return { success: false, data: null, message: '添加账号失败' }
   }
 }
 
@@ -31,7 +31,7 @@ export const deleteAccount = async (id) => {
     return response.data
   } catch (error) {
     console.error(`删除账号${id}失败:`, error)
-    return null
+    return { success: false, data: null, message: '删除账号失败' }
   }
 }
 
@@ -43,7 +43,7 @@ export const updateAccount = async (accountData) => {
     return response.data
   } catch (error) {
     console.error(`更新账号${accountData.id}失败:`, error)
-    return null
+    return { success: false, data: null, message: '更新账号失败' }
   }
 }
 
@@ -58,6 +58,6 @@ export const batchAddAccounts = async (formData) => {
     return response.data
   } catch (error) {
     console.error('批量添加账号失败:', error)
-    return null
+    return { success: false, data: null, message: '批量添加账号失败' }
   }
 }

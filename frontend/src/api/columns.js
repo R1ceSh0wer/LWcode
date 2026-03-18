@@ -9,7 +9,7 @@ export const getColumns = async () => {
     return response.data
   } catch (error) {
     console.error('获取专栏列表失败:', error)
-    return []
+    return { success: false, data: [], message: '获取专栏列表失败' }
   }
 }
 
@@ -20,7 +20,7 @@ export const getColumnById = async (id) => {
     return response.data
   } catch (error) {
     console.error(`获取专栏${id}信息失败:`, error)
-    return null
+    return { success: false, data: null, message: '获取专栏信息失败' }
   }
 }
 
@@ -31,7 +31,7 @@ export const updateColumn = async (id, columnData) => {
     return response.data
   } catch (error) {
     console.error(`更新专栏${id}信息失败:`, error)
-    return null
+    return { success: false, data: null, message: '更新专栏信息失败' }
   }
 }
 
@@ -71,7 +71,7 @@ export const addColumn = async (columnData) => {
     }
   } catch (error) {
     console.error('添加专栏失败:', error);
-    return null;
+    return { success: false, data: null, message: '添加专栏失败' };
   }
 }
 
@@ -82,6 +82,6 @@ export const deleteColumn = async (id) => {
     return response.data
   } catch (error) {
     console.error(`删除专栏${id}失败:`, error)
-    return null
+    return { success: false, data: null, message: '删除专栏失败' }
   }
 }

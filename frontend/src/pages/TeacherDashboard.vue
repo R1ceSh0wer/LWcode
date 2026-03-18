@@ -225,6 +225,18 @@
               class="search-input"
             >
           </div>
+
+          <div class="filter-group column-info-group">
+            <button
+              v-if="selectedColumnId"
+              @click="openColumnInfoModal"
+              class="column-info-text-button"
+              type="button"
+              title="查看/修改当前专栏信息"
+            >
+              查看专栏信息
+            </button>
+          </div>
         </div>
 
         <!-- 学生列表 -->
@@ -771,6 +783,91 @@
         </div>
       </div>
     </div>
+
+    <!-- 查看/修改专栏信息模态框（图片只读） -->
+    <div v-if="isColumnInfoModalVisible" class="modal-overlay" @click.self="closeColumnInfoModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>专栏信息</h3>
+          <button @click="closeColumnInfoModal" class="modal-close">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">专栏名称</label>
+            <input
+              v-model="editingColumn.name"
+              placeholder="输入专栏名称（如：第一次月考）"
+              class="form-input"
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">选择模型存档 <span class="required">*</span></label>
+            <select v-model="editingColumn.archiveId" class="form-input">
+              <option value="">请选择存档</option>
+              <option
+                v-for="archive in completedArchives"
+                :key="archive.id"
+                :value="archive.id"
+              >
+                {{ archive.name }} ({{ archive.status }})
+              </option>
+            </select>
+            <p class="form-hint">可修改专栏使用的模型存档</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">试题图片（仅查看）</label>
+            <div v-if="editingColumn.imageUrls.length > 0" class="readonly-images-grid">
+              <div
+                v-for="(url, idx) in editingColumn.imageUrls"
+                :key="url + idx"
+                class="readonly-image-item"
+              >
+                <img
+                  :src="url"
+                  class="readonly-image"
+                  :alt="`试题图片${idx + 1}`"
+                  title="点击放大"
+                  @click="openColumnImagePreview(url)"
+                >
+                <div class="readonly-image-index">第 {{ idx + 1 }} 张</div>
+              </div>
+            </div>
+            <div v-else class="no-readonly-images">暂无已上传图片</div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button @click="closeColumnInfoModal" class="cancel-button" :disabled="isUpdatingColumn">关闭</button>
+          <div class="submit-container" v-if="isUpdatingColumn">
+            <div class="loading-spinner"></div>
+            <span>保存中...</span>
+          </div>
+          <button
+            v-else
+            @click="saveColumnInfo"
+            class="submit-button"
+            :disabled="!editingColumn.name || !editingColumn.archiveId"
+          >
+            保存修改
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 专栏图片放大预览（只读） -->
+    <div
+      v-if="isColumnImagePreviewVisible"
+      class="image-preview-overlay"
+      @click.self="closeColumnImagePreview"
+    >
+      <div class="image-preview-modal" @click.stop>
+        <button class="image-preview-close" @click="closeColumnImagePreview" type="button">×</button>
+        <img :src="columnImagePreviewUrl" class="image-preview-img" alt="专栏试题图片预览">
+      </div>
+    </div>
     
     <!-- 编辑账号模态框 -->
     <div v-if="isEditAccountModalVisible" class="modal-overlay">
@@ -1147,7 +1244,7 @@ import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import { getStudents } from '../api/students';
-import { getColumns, addColumn, deleteColumn } from '../api/columns';
+import { getColumns, getColumnById, addColumn, deleteColumn, updateColumn } from '../api/columns';
 import { generateComment as apiGenerateComment, getStudentComments, createComment as apiCreateComment, deleteComment as apiDeleteComment } from '../api/comments';
 import { uploadImage } from '../api/images';
 import { getAccounts, addAccount as apiAddAccount, deleteAccount as apiDeleteAccount, updateAccount as apiUpdateAccount, batchAddAccounts as apiBatchAddAccounts } from '../api/accounts';
@@ -1184,6 +1281,20 @@ const isColumnModalVisible = ref(false);
 const isCreatingColumn = ref(false);
 const newColumn = ref({ name: '', archiveId: '' });
 const columnImageUpload = ref(null);
+
+// 查看/修改专栏信息（图片只读）
+const isColumnInfoModalVisible = ref(false);
+const isUpdatingColumn = ref(false);
+const editingColumn = ref({
+  id: '',
+  name: '',
+  archiveId: '',
+  imageUrls: []
+});
+
+// 专栏图片放大预览（只读）
+const isColumnImagePreviewVisible = ref(false);
+const columnImagePreviewUrl = ref('');
 
 // 模型存档数据
 const completedArchives = ref([]);
@@ -1604,6 +1715,86 @@ const closeColumnModal = () => {
   isColumnModalVisible.value = false;
 };
 
+const closeColumnInfoModal = () => {
+  isColumnInfoModalVisible.value = false;
+  isUpdatingColumn.value = false;
+  editingColumn.value = { id: '', name: '', archiveId: '', imageUrls: [] };
+};
+
+const openColumnImagePreview = (url) => {
+  if (!url) return;
+  columnImagePreviewUrl.value = url;
+  isColumnImagePreviewVisible.value = true;
+};
+
+const closeColumnImagePreview = () => {
+  isColumnImagePreviewVisible.value = false;
+  columnImagePreviewUrl.value = '';
+};
+
+const openColumnInfoModal = async () => {
+  if (!selectedColumnId.value) return;
+  try {
+    isUpdatingColumn.value = true;
+    const resp = await getColumnById(selectedColumnId.value);
+    if (!resp?.success) {
+      alert(resp?.message || '获取专栏信息失败');
+      return;
+    }
+    const col = resp.data;
+    const paths = [
+      col.questionImagePath1,
+      col.questionImagePath2,
+      col.questionImagePath3,
+      col.questionImagePath4,
+      col.questionImagePath5,
+      col.questionImagePath6
+    ].filter(p => p && String(p).trim() !== '');
+
+    editingColumn.value = {
+      id: col.id,
+      name: col.name,
+      archiveId: col.archiveId ? String(col.archiveId) : '',
+      imageUrls: paths.map(p => (String(p).startsWith('http') ? String(p) : `http://localhost:5000/${String(p).replace(/^\//, '')}`))
+    };
+    isColumnInfoModalVisible.value = true;
+  } catch (e) {
+    console.error('获取专栏信息失败:', e);
+    alert('获取专栏信息失败，请重试');
+  } finally {
+    isUpdatingColumn.value = false;
+  }
+};
+
+const saveColumnInfo = async () => {
+  if (!editingColumn.value.id) return;
+  if (!editingColumn.value.name || !editingColumn.value.archiveId) return;
+  isUpdatingColumn.value = true;
+  try {
+    const resp = await updateColumn(editingColumn.value.id, {
+      name: editingColumn.value.name,
+      archiveId: editingColumn.value.archiveId
+    });
+    if (!resp?.success) {
+      alert(resp?.message || '保存失败，请重试');
+      return;
+    }
+
+    const updated = resp.data;
+    const idx = columns.value.findIndex(c => String(c.id) === String(updated.id));
+    if (idx !== -1) {
+      columns.value[idx] = { ...columns.value[idx], ...updated };
+    }
+    closeColumnInfoModal();
+    alert('专栏信息已更新');
+  } catch (e) {
+    console.error('保存专栏信息失败:', e);
+    alert('保存失败，请重试');
+  } finally {
+    isUpdatingColumn.value = false;
+  }
+};
+
 // 关闭评语模态框
 const closeCommentModal = () => {
   selectedStudent.value = null;
@@ -1849,9 +2040,11 @@ const formatDate = (dateString) => {
 // 加载学生数据
 const loadStudents = async () => {
   try {
-    const studentsData = await getStudents();
+    const studentsResp = await getStudents();
+    const studentsData = studentsResp?.success ? (studentsResp.data || []) : [];
     for (const student of studentsData) {
-      student.comments = await getStudentComments(student.id);
+      const commentsResp = await getStudentComments(student.id);
+      student.comments = commentsResp?.success ? (commentsResp.data || []) : [];
     }
     students.value = studentsData;
   } catch (error) {
@@ -1862,7 +2055,8 @@ const loadStudents = async () => {
 // 加载专栏数据
 const loadColumns = async () => {
   try {
-    const columnsData = await getColumns();
+    const columnsResp = await getColumns();
+    const columnsData = columnsResp?.success ? (columnsResp.data || []) : [];
     columns.value = columnsData;
     // 默认选择第一个专栏
     if (columns.value.length > 0) {
@@ -1876,8 +2070,8 @@ const loadColumns = async () => {
 // 加载账号数据
 const loadAccounts = async () => {
   try {
-    const accountsData = await getAccounts();
-    accounts.value = accountsData;
+    const accountsResp = await getAccounts();
+    accounts.value = accountsResp?.success ? (accountsResp.data || []) : [];
   } catch (error) {
     console.error('加载账号数据失败:', error);
   }
@@ -1914,14 +2108,16 @@ const createColumn = async () => {
     
     // 创建专栏
     const result = await addColumn(columnData);
-    if (result) {
-      columns.value.push(result);
+    if (result?.success) {
+      columns.value.push(result.data);
       newColumn.value = { name: '', archiveId: '' };
       isColumnModalVisible.value = false;
       // 清空图片上传组件的预览
       if (columnImageUpload.value) {
         columnImageUpload.value.clearAll();
       }
+    } else {
+      alert(result?.message || '创建专栏失败，请重试');
     }
   } catch (error) {
     console.error('创建专栏失败:', error);
@@ -1957,9 +2153,12 @@ const generateComment = async () => {
       addition: additionComment.value // 附加评语
     };
     
-    let newComment;
-    // 直接调用apiGenerateComment，后端会自动处理更新或创建
-    newComment = await apiGenerateComment(commentData);
+    // 直接调用 apiGenerateComment，后端会自动处理更新或创建
+    const resp = await apiGenerateComment(commentData);
+    if (!resp?.success || !resp?.data) {
+      throw new Error(resp?.message || '生成/修改评语失败');
+    }
+    const newComment = resp.data;
     
     // 更新学生的评语列表
     const student = students.value.find(s => s.id === selectedStudentId.value);
@@ -1975,8 +2174,15 @@ const generateComment = async () => {
           student.comments[index] = newComment;
         }
       } else {
-        // 生成模式：添加新评语
-        student.comments.push(newComment);
+        // 生成模式：同一专栏存在则替换，否则新增（避免重复/保持按钮状态立即更新）
+        const existingIdx = student.comments.findIndex(
+          c => String(c.columnId) === String(newComment.columnId)
+        );
+        if (existingIdx !== -1) {
+          student.comments[existingIdx] = newComment;
+        } else {
+          student.comments.push(newComment);
+        }
       }
     }
     
@@ -2003,10 +2209,14 @@ onMounted(() => {
 // 加载模型存档
 const loadArchives = async () => {
   try {
-    const response = await getArchives(currentUser.value.id);
-    if (response.data.success) {
-      completedArchives.value = response.data.archives.filter(archive => archive.status === 'completed');
-      modelArchives.value = response.data.archives;
+    const resp = await getArchives(currentUser.value.id);
+    if (resp?.success) {
+      const archives = resp.data || [];
+      completedArchives.value = archives.filter(archive => archive.status === 'completed');
+      modelArchives.value = archives;
+    } else {
+      completedArchives.value = [];
+      modelArchives.value = [];
     }
   } catch (error) {
     console.error('加载存档失败:', error);
@@ -2099,7 +2309,7 @@ const handleCreateArchive = async () => {
     }
     
     const response = await createArchiveWithFiles(formData)
-    if (response.data.success) {
+    if (response?.success) {
       alert('存档创建成功')
       showCreateArchiveModal.value = false
       newArchiveName.value = ''
@@ -2113,7 +2323,7 @@ const handleCreateArchive = async () => {
     }
   } catch (error) {
     console.error('创建存档失败:', error)
-    alert(error.response?.data?.error || '创建存档失败')
+    alert(error?.message || '创建存档失败')
   }
 }
 
@@ -2160,7 +2370,7 @@ const handleUploadFiles = async () => {
     
     const response = await uploadArchiveFiles(currentArchive.value.id, formData)
     
-    if (response.data.success) {
+    if (response?.success) {
       uploadProgress.value = 100
       alert('文件上传成功，训练已启动')
       showUploadModalFlag.value = false
@@ -2168,7 +2378,7 @@ const handleUploadFiles = async () => {
     }
   } catch (error) {
     console.error('上传文件失败:', error)
-    alert('上传文件失败：' + (error.response?.data?.error || '未知错误'))
+    alert('上传文件失败：' + (error?.message || '未知错误'))
   } finally {
     isUploading.value = false
     setTimeout(() => {
@@ -2182,8 +2392,8 @@ const showArchiveDetail = async (archive) => {
   currentArchive.value = archive
   try {
     const response = await getArchiveDetail(archive.id)
-    if (response.data.success) {
-      currentArchive.value = response.data.archive
+    if (response?.success) {
+      currentArchive.value = response.data
       showDetailModal.value = true
     }
   } catch (error) {
@@ -2202,7 +2412,7 @@ const confirmDeleteArchive = (archive) => {
 const handleDeleteArchive = async () => {
   try {
     const response = await deleteArchive(archiveToDelete.value.id)
-    if (response.data.success) {
+    if (response?.success) {
       alert('存档删除成功')
       showDeleteArchiveConfirm.value = false
       archiveToDelete.value = null
@@ -2210,7 +2420,7 @@ const handleDeleteArchive = async () => {
     }
   } catch (error) {
     console.error('删除存档失败:', error)
-    alert(error.response?.data?.error || '删除存档失败')
+    alert(error?.message || '删除存档失败')
   }
 }
 </script>
@@ -2498,6 +2708,8 @@ const handleDeleteArchive = async () => {
   font-size: 14px;
   color: #555;
   font-weight: 500;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .filter-select {
@@ -2520,6 +2732,23 @@ const handleDeleteArchive = async () => {
 .column-select-container .filter-select {
   width: 100%;
   padding-right: 30px;
+}
+
+.column-info-text-button {
+  background: transparent;
+  color: #4a90e2;
+  border: 1px solid rgba(74, 144, 226, 0.35);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.column-info-text-button:hover {
+  background: rgba(74, 144, 226, 0.08);
+  border-color: rgba(74, 144, 226, 0.6);
 }
 
 .delete-column-button {
@@ -2547,11 +2776,90 @@ const handleDeleteArchive = async () => {
   opacity: 1;
 }
 
+.readonly-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.readonly-image-item {
+  border: 1px solid #e6eaf2;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.readonly-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+  background: #f5f7fa;
+  cursor: zoom-in;
+}
+
+.readonly-image-index {
+  font-size: 12px;
+  color: #666;
+  padding: 8px 10px;
+  border-top: 1px solid #eef2f7;
+}
+
+.no-readonly-images {
+  margin-top: 10px;
+  color: #999;
+  font-size: 13px;
+}
+
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+}
+
+.image-preview-modal {
+  position: relative;
+  max-width: min(1100px, 95vw);
+  max-height: 90vh;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: #333;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.image-preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 10px;
+  background: #fff;
+}
+
 .search-group {
-  margin-left: auto;
   flex: 1;
   min-width: 250px;
   max-width: 400px;
+}
+
+.column-info-group {
+  margin-left: auto;
 }
 
 .search-input {

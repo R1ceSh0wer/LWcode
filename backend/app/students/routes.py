@@ -1,6 +1,7 @@
 from flask import jsonify, request
 from ..users.models import db, User, StudentInfo
 from neo4j_service import neo4j_conn
+from app.api_response import ok, fail
 from . import bp
 
 
@@ -19,9 +20,9 @@ def get_students():
                 'username': student.username
             })
         
-        return jsonify(result)
+        return ok(result)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取学生列表失败：{str(e)}'}), 500
+        return fail(f'获取学生列表失败：{str(e)}', 500)
 
 
 @bp.route('/students/<string:id>', methods=['GET'])
@@ -30,7 +31,7 @@ def get_student(id):
         student = User.query.filter_by(id=id, role='student').first()
         
         if student and student.student_info:
-            return jsonify({
+            return ok({
                 'id': str(student.id),
                 'name': student.student_info.name,
                 'studentId': student.student_info.student_number,
@@ -38,9 +39,9 @@ def get_student(id):
                 'username': student.username,
                 'features': student.student_info.features
             })
-        return jsonify({'message': '学生不存在'}), 404
+        return fail('学生不存在', 404)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取学生信息失败：{str(e)}'}), 500
+        return fail(f'获取学生信息失败：{str(e)}', 500)
 
 
 @bp.route('/students/integrated/<string:student_id>', methods=['GET'])
@@ -48,7 +49,7 @@ def get_integrated_student_data(student_id):
     try:
         student = User.query.filter_by(id=student_id, role='student').first()
         if not student or not student.student_info:
-            return jsonify({'success': False, 'message': '学生不存在'}), 404
+            return fail('学生不存在', 404)
         
         mysql_data = {
             'id': str(student.id),
@@ -73,10 +74,6 @@ def get_integrated_student_data(student_id):
                 'properties': dict(node.items())
             })
         
-        return jsonify({
-            'success': True,
-            'mysql_data': mysql_data,
-            'neo4j_data': neo4j_data
-        })
+        return ok({'mysql_data': mysql_data, 'neo4j_data': neo4j_data})
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取集成数据失败：{str(e)}'}), 500
+        return fail(f'获取集成数据失败：{str(e)}', 500)

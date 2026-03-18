@@ -4,6 +4,7 @@ from .models import db, User, StudentInfo
 from ..comments.models import Comment, SummaryComment
 from ..columns.models import ExamColumn
 from neo4j_service import neo4j_conn
+from app.api_response import ok, fail
 import os
 import openpyxl
 from . import bp
@@ -37,10 +38,10 @@ def get_accounts():
             
             result.append(account_data)
         
-        return jsonify(result)
+        return ok(result)
     except Exception as e:
         print(f"获取账号列表失败：{str(e)}")
-        return jsonify({'success': False, 'message': f'获取账号列表失败：{str(e)}'}), 500
+        return fail(f'获取账号列表失败：{str(e)}', 500)
 
 
 @bp.route('/accounts', methods=['POST'])
@@ -93,11 +94,11 @@ def create_account():
             except Exception as neo4j_error:
                 print(f"Neo4j创建学生节点失败: {str(neo4j_error)}")
         
-        return jsonify(response_data), 201
+        return ok(response_data, status_code=201)
     except Exception as e:
         print(f"创建账号失败：{str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'创建账号失败：{str(e)}'}), 500
+        return fail(f'创建账号失败：{str(e)}', 500)
 
 
 @bp.route('/accounts/<string:id>', methods=['DELETE'])
@@ -105,7 +106,7 @@ def delete_account(id):
     try:
         account = User.query.filter_by(id=id).first()
         if not account:
-            return jsonify({'success': False, 'message': '账号不存在'}), 404
+            return fail('账号不存在', 404)
         
         if account.role == 'student':
             if account.student_info:
@@ -135,11 +136,11 @@ def delete_account(id):
         db.session.delete(account)
         db.session.commit()
         
-        return jsonify({'success': True, 'message': '账号已删除'})
+        return ok(None, message='账号已删除')
     except Exception as e:
         print(f"删除账号失败：{str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'删除账号失败：{str(e)}'}), 500
+        return fail(f'删除账号失败：{str(e)}', 500)
 
 
 @bp.route('/accounts/template', methods=['GET'])
@@ -154,20 +155,20 @@ def download_account_template():
                 download_name='账号模板.xlsx'
             )
         else:
-            return jsonify({'success': False, 'message': '模板文件不存在'}), 404
+            return fail('模板文件不存在', 404)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'下载模板失败：{str(e)}'}), 500
+        return fail(f'下载模板失败：{str(e)}', 500)
 
 
 @bp.route('/accounts/batch', methods=['POST'])
 def batch_add_accounts():
     try:
         if 'file' not in request.files:
-            return jsonify({'success': False, 'message': '没有文件上传'}), 400
+            return fail('没有文件上传', 400)
         
         file = request.files['file']
         if file.filename == '':
-            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+            return fail('没有选择文件', 400)
         
         temp_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], file.filename)
         file.save(temp_file_path)
@@ -265,15 +266,10 @@ def batch_add_accounts():
         
         os.remove(temp_file_path)
         
-        return jsonify({
-            'success': True,
-            'successCount': success_count,
-            'failureCount': failure_count,
-            'failures': failures
-        })
+        return ok({'successCount': success_count, 'failureCount': failure_count, 'failures': failures})
     except Exception as e:
         print(f"批量添加账号失败：{str(e)}")
-        return jsonify({'success': False, 'message': f'批量添加账号失败：{str(e)}'}), 500
+        return fail(f'批量添加账号失败：{str(e)}', 500)
 
 
 @bp.route('/accounts/<string:id>', methods=['PUT'])
@@ -282,7 +278,7 @@ def update_account(id):
     try:
         account = User.query.filter_by(id=id).first()
         if not account:
-            return jsonify({'success': False, 'message': '账号不存在'}), 404
+            return fail('账号不存在', 404)
         
         if 'username' in data:
             account.username = data['username']
@@ -338,8 +334,8 @@ def update_account(id):
             except Exception as neo4j_error:
                 print(f"Neo4j更新学生节点失败: {str(neo4j_error)}")
         
-        return jsonify(response_data)
+        return ok(response_data)
     except Exception as e:
         print(f"更新账号失败：{str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'更新账号失败：{str(e)}'}), 500
+        return fail(f'更新账号失败：{str(e)}', 500)

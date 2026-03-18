@@ -8,6 +8,7 @@ from flask import request, jsonify, current_app
 from . import bp
 from .models import ModelArchive
 from ..users.models import db
+from app.api_response import ok, fail
 from functools import wraps
 from datetime import datetime
 
@@ -179,7 +180,7 @@ def get_archives():
             'has_knowledge_mapping': bool(archive.knowledge_mapping_path)
         })
     
-    return jsonify({'success': True, 'archives': result})
+    return ok(result)
 
 
 @bp.route('/', methods=['POST'])
@@ -191,12 +192,12 @@ def create_archive():
     teacher_id = data.get('teacher_id', type=int)
     
     if not name or not teacher_id:
-        return jsonify({'success': False, 'error': '缺少必要参数'}), 400
+        return fail('缺少必要参数', 400)
     
     # 检查名称是否已存在
     existing = ModelArchive.query.filter_by(name=name).first()
     if existing:
-        return jsonify({'success': False, 'error': '存档名称已存在'}), 400
+        return fail('存档名称已存在', 400)
     
     archive = ModelArchive(
         name=name,
@@ -207,14 +208,11 @@ def create_archive():
     db.session.add(archive)
     db.session.commit()
     
-    return jsonify({
-        'success': True,
-        'archive': {
-            'id': archive.id,
-            'name': archive.name,
-            'status': archive.status
-        }
-    })
+    return ok({
+        'id': archive.id,
+        'name': archive.name,
+        'status': archive.status
+    }, status_code=201)
 
 
 @bp.route('/create-with-files', methods=['POST'])
@@ -227,12 +225,12 @@ def create_archive_with_files():
     create_mode = data.get('create_mode', 'existing')  # 'existing' 或 'train'
     
     if not name or not teacher_id:
-        return jsonify({'success': False, 'error': '缺少必要参数'}), 400
+        return fail('缺少必要参数', 400)
     
     # 检查名称是否已存在
     existing = ModelArchive.query.filter_by(name=name).first()
     if existing:
-        return jsonify({'success': False, 'error': '存档名称已存在'}), 400
+        return fail('存档名称已存在', 400)
     
     # 创建存档记录
     archive = ModelArchive(
@@ -284,20 +282,17 @@ def create_archive_with_files():
             archive.status = 'completed'
             db.session.commit()
             
-            return jsonify({
-                'success': True,
-                'archive': {
-                    'id': archive.id,
-                    'name': archive.name,
-                    'status': archive.status
-                }
+            return ok({
+                'id': archive.id,
+                'name': archive.name,
+                'status': archive.status
             })
             
         else:
             # 上传训练文件模式
             # 保存知识点映射文件
             if 'knowledge_mapping' not in request.files:
-                return jsonify({'success': False, 'error': '缺少知识点映射文件'}), 400
+                return fail('缺少知识点映射文件', 400)
             
             knowledge_mapping_file = request.files['knowledge_mapping']
             mapping_path = os.path.join(archive_dir, 'knowledge_mapping.txt')
@@ -307,7 +302,7 @@ def create_archive_with_files():
             # 保存训练数据文件
             train_data_files = request.files.getlist('train_data_files')
             if not train_data_files:
-                return jsonify({'success': False, 'error': '缺少训练数据文件'}), 400
+                return fail('缺少训练数据文件', 400)
             
             train_data_dir = os.path.join(archive_dir, 'train_data')
             os.makedirs(train_data_dir, exist_ok=True)
@@ -326,11 +321,7 @@ def create_archive_with_files():
             thread.daemon = True
             thread.start()
             
-            return jsonify({
-                'success': True,
-                'message': '文件上传成功，训练已启动',
-                'archive_id': archive.id
-            })
+            return ok({'archive_id': archive.id}, message='文件上传成功，训练已启动')
             
     except Exception as e:
         print(f'[Archive] 创建存档失败：{e}')
@@ -338,7 +329,7 @@ def create_archive_with_files():
         traceback.print_exc()
         archive.status = 'failed'
         db.session.commit()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return fail(str(e), 500)
 
 
 @bp.route('/<int:archive_id>/upload', methods=['POST'])
@@ -346,10 +337,10 @@ def upload_archive_files(archive_id):
     """上传存档文件并开始训练"""
     archive = ModelArchive.query.get(archive_id)
     if not archive:
-        return jsonify({'success': False, 'error': '存档不存在'}), 404
+        return fail('存档不存在', 404)
     
     if 'knowledge_mapping' not in request.files:
-        return jsonify({'success': False, 'error': '缺少知识点映射文件'}), 400
+        return fail('缺少知识点映射文件', 400)
     
     knowledge_mapping_file = request.files['knowledge_mapping']
     
@@ -379,11 +370,7 @@ def upload_archive_files(archive_id):
     thread.daemon = True
     thread.start()
     
-    return jsonify({
-        'success': True,
-        'message': '文件上传成功，训练已启动',
-        'archive_id': archive_id
-    })
+    return ok({'archive_id': archive_id}, message='文件上传成功，训练已启动')
 
 
 @bp.route('/<int:archive_id>', methods=['GET'])
@@ -391,20 +378,17 @@ def get_archive_detail(archive_id):
     """获取存档详情"""
     archive = ModelArchive.query.get(archive_id)
     if not archive:
-        return jsonify({'success': False, 'error': '存档不存在'}), 404
+        return fail('存档不存在', 404)
     
-    return jsonify({
-        'success': True,
-        'archive': {
-            'id': archive.id,
-            'name': archive.name,
-            'status': archive.status,
-            'training_log': archive.training_log,
-            'created_at': archive.created_at.strftime('%Y-%m-%d %H:%M:%S') if archive.created_at else None,
-            'word_emb_path': archive.word_emb_path,
-            'diagnosis_model_path': archive.diagnosis_model_path,
-            'knowledge_mapping_path': archive.knowledge_mapping_path
-        }
+    return ok({
+        'id': archive.id,
+        'name': archive.name,
+        'status': archive.status,
+        'training_log': archive.training_log,
+        'created_at': archive.created_at.strftime('%Y-%m-%d %H:%M:%S') if archive.created_at else None,
+        'word_emb_path': archive.word_emb_path,
+        'diagnosis_model_path': archive.diagnosis_model_path,
+        'knowledge_mapping_path': archive.knowledge_mapping_path
     })
 
 
@@ -413,11 +397,11 @@ def delete_archive(archive_id):
     """删除存档"""
     archive = ModelArchive.query.get(archive_id)
     if not archive:
-        return jsonify({'success': False, 'error': '存档不存在'}), 404
+        return fail('存档不存在', 404)
     
     # 检查是否有专栏使用该存档
     if archive.columns.count() > 0:
-        return jsonify({'success': False, 'error': '有专栏正在使用该存档，无法删除'}), 400
+        return fail('有专栏正在使用该存档，无法删除', 400)
     
     # 删除存档文件
     if archive.word_emb_path:
@@ -440,7 +424,7 @@ def delete_archive(archive_id):
     db.session.delete(archive)
     db.session.commit()
     
-    return jsonify({'success': True})
+    return ok(None, message='存档已删除')
 
 
 def train_archive_model_with_raw_data(archive_id, train_data_dir, knowledge_mapping_file, archive_name):

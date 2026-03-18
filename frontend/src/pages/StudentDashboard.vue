@@ -608,7 +608,8 @@ const loadMyComments = async () => {
   if (!currentUser.value || !currentUser.value.id) return
   
   try {
-    const comments = await getStudentComments(currentUser.value.id)
+    const resp = await getStudentComments(currentUser.value.id)
+    const comments = resp?.success ? (resp.data || []) : []
     myComments.value = comments
     
     // 初始化反馈表单
@@ -633,7 +634,8 @@ const loadStudentProfile = async () => {
   if (!currentUser.value || !currentUser.value.id) return
   
   try {
-    const student = await getStudentById(currentUser.value.id)
+    const resp = await getStudentById(currentUser.value.id)
+    const student = resp?.success ? resp.data : null
     if (student) {
       studentProfile.value = {
         studentId: student.studentId,
@@ -648,8 +650,8 @@ const loadStudentProfile = async () => {
 // 加载专栏数据
 const loadColumns = async () => {
   try {
-    const data = await getColumns()
-    columns.value = data
+    const resp = await getColumns()
+    columns.value = resp?.success ? (resp.data || []) : []
   } catch (error) {
     console.error('获取专栏失败:', error)
   }
@@ -662,10 +664,12 @@ const generateSummary = async () => {
   isGeneratingSummary.value = true
   
   try {
-    const result = await generateSummaryComment(currentUser.value.id)
-    if (result) {
-      summaryComment.value = result
+    const resp = await generateSummaryComment(currentUser.value.id)
+    if (resp?.success) {
+      summaryComment.value = resp.data
       alert('总评生成成功！')
+    } else {
+      alert(resp?.message || '生成总评失败，请重试')
     }
   } catch (error) {
     console.error('生成总评失败:', error)
@@ -681,7 +685,7 @@ const submitFeedback = async (commentId) => {
   
   try {
     const result = await apiSubmitFeedback(commentId, commentFeedback.value[commentId])
-    if (result) {
+    if (result?.success) {
       // 更新本地评语状态
       const comment = myComments.value.find(c => c.id === commentId)
       if (comment) {
@@ -1150,6 +1154,165 @@ onMounted(async () => {
   margin: 0;
   font-size: 14px;
   color: #666;
+}
+
+/* 个人资料样式 */
+.profile-container {
+  display: flex;
+  justify-content: center;
+}
+
+.profile-info {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #fafcff;
+}
+
+.profile-avatar {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  background: #667eea;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.profile-details {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 18px;
+}
+
+.profile-item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.profile-label {
+  flex: 0 0 auto;
+  color: #555;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.profile-value {
+  color: #333;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 反馈建议表单样式 */
+.feedback-form-container {
+  display: flex;
+  justify-content: center;
+}
+
+.feedback-form-container form {
+  width: 100%;
+  max-width: 720px;
+  padding: 20px;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-select,
+.form-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #333;
+}
+
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 140px;
+}
+
+.submit-feedback-form-button {
+  background: #667eea;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.submit-feedback-form-button:hover:not(:disabled) {
+  background: #5a6fd8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+}
+
+.submit-feedback-form-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 响应式：窄屏改为单列 */
+@media (max-width: 768px) {
+  .profile-info {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-avatar {
+    width: 72px;
+    height: 72px;
+    flex-basis: 72px;
+    border-radius: 14px;
+  }
+
+  .profile-details {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 评语列表样式 */

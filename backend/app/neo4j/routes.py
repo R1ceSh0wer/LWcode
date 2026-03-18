@@ -3,6 +3,43 @@ from neo4j_service import neo4j_conn
 from app.neo4j import bp
 
 
+@bp.route('/knowledge-graph', methods=['GET'])
+def get_knowledge_graph():
+    """获取完整知识图谱（兼容前端一次性加载）"""
+    try:
+        nodes_query = "MATCH (n) RETURN n.node_id AS id, labels(n)[0] AS group, n"
+        edges_query = "MATCH (s)-[r:RELATION]->(t) RETURN s.node_id AS from, t.node_id AS to, r"
+        nodes_result = neo4j_conn.query(nodes_query)
+        edges_result = neo4j_conn.query(edges_query)
+
+        nodes = []
+        for record in nodes_result:
+            node_data = record['n']
+            nodes.append({
+                'id': record['id'],
+                'group': record['group'].lower(),
+                'label': node_data.get('label'),
+                'title': node_data.get('title'),
+                'description': node_data.get('description'),
+                'year': node_data.get('year'),
+                'color': node_data.get('color')
+            })
+
+        edges = []
+        for record in edges_result:
+            edge_data = record['r']
+            edges.append({
+                'from': record['from'],
+                'to': record['to'],
+                'label': edge_data.get('label'),
+                'color': edge_data.get('color')
+            })
+
+        return jsonify({'nodes': nodes, 'edges': edges})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取知识图谱失败：{str(e)}'}), 500
+
+
 @bp.route('/knowledge-graph/nodes', methods=['GET'])
 def get_knowledge_graph_nodes():
     """获取知识图谱所有节点"""

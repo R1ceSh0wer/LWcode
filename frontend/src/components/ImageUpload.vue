@@ -213,11 +213,11 @@ const uploadImages = async (skipCreateComment = false) => {
       const result = await uploadImage(formData)
       
       if (result && result.success) {
-        if (result.fileUrl) {
+        if (result.data && result.data.fileUrl) {
           // 构建图片信息对象
           const uploadedImage = {
-            name: result.filename,
-            url: result.fileUrl
+            name: result.data.filename,
+            url: result.data.fileUrl
           };
           // 确保图片URL是完整的
           if (uploadedImage.url && !uploadedImage.url.startsWith('http')) {
@@ -279,7 +279,8 @@ const uploadImages = async (skipCreateComment = false) => {
 // 加载已上传图片
 const loadUploadedImages = async () => {
   try {
-    const images = await getUploadedImages()
+    const resp = await getUploadedImages()
+    const images = resp?.success ? (resp.data || []) : []
     
     // 确保所有图片URL都是完整的
     const processedImages = images.map(image => {

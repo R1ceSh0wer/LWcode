@@ -3,6 +3,7 @@ from datetime import datetime
 from .models import ExamColumn
 from ..comments.models import Comment
 from ..users.models import db
+from app.api_response import ok, fail
 from utils import allowed_file, ocr_process, batch_ocr_process, save_uploaded_file, init_ocr_engine, extract_knowledge_from_ocr_text, process_question_images_for_knowledge, get_knowledge_model
 import os
 import json
@@ -25,29 +26,34 @@ def get_columns():
                 'teacherId': str(column.teacher_id)
             })
         
-        return jsonify(result)
+        return ok(result)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取专栏列表失败：{str(e)}'}), 500
+        return fail(f'获取专栏列表失败：{str(e)}', 500)
 
 
-@bp.route('/columns/<string:id>', methods=['GET'])
-def get_column(id):
+@bp.route('/columns/<int:id>', methods=['GET'])
+def get_column(id: int):
     try:
         column = ExamColumn.query.filter_by(id=id).first()
         
         if column:
-            return jsonify({
+            return ok({
                 'id': str(column.id),
                 'name': column.title,
                 'description': column.question_text or '',
                 'archiveId': column.archive_id,
                 'created': column.created_at.strftime('%Y-%m-%d'),
-                'questionImagePath': column.question_image_path or '',
+                'questionImagePath1': column.question_image_path1 or '',
+                'questionImagePath2': column.question_image_path2 or '',
+                'questionImagePath3': column.question_image_path3 or '',
+                'questionImagePath4': column.question_image_path4 or '',
+                'questionImagePath5': column.question_image_path5 or '',
+                'questionImagePath6': column.question_image_path6 or '',
                 'teacherId': str(column.teacher_id)
             })
-        return jsonify({'message': '专栏不存在'}), 404
+        return fail('专栏不存在', 404)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取专栏信息失败：{str(e)}'}), 500
+        return fail(f'获取专栏信息失败：{str(e)}', 500)
 
 
 @bp.route('/columns', methods=['POST'])
@@ -122,7 +128,7 @@ def create_column():
         
         db.session.commit()
         
-        return jsonify({
+        return ok({
             'id': str(new_column.id),
             'name': new_column.title,
             'description': new_column.question_text,
@@ -130,28 +136,28 @@ def create_column():
             'archiveId': new_column.archive_id,
             'created': new_column.created_at.strftime('%Y-%m-%d'),
             'teacherId': str(new_column.teacher_id)
-        }), 201
+        }, status_code=201)
     except Exception as e:
         db.session.rollback()
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'message': f'创建专栏失败：{str(e)}'}), 500
+        return fail(f'创建专栏失败：{str(e)}', 500)
 
 
-@bp.route('/columns/<string:id>', methods=['PUT'])
-def update_column(id):
+@bp.route('/columns/<int:id>', methods=['PUT'])
+def update_column(id: int):
     data = request.get_json()
     try:
         column = ExamColumn.query.filter_by(id=id).first()
         if not column:
-            return jsonify({'success': False, 'message': '专栏不存在'}), 404
+            return fail('专栏不存在', 404)
         
         column.title = data.get('name', column.title)
         column.question_text = data.get('description', column.question_text)
         column.archive_id = data.get('archiveId', column.archive_id)
         db.session.commit()
         
-        return jsonify({
+        return ok({
             'id': str(column.id),
             'name': column.title,
             'description': column.question_text,
@@ -161,15 +167,15 @@ def update_column(id):
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'更新专栏失败：{str(e)}'}), 500
+        return fail(f'更新专栏失败：{str(e)}', 500)
 
 
-@bp.route('/columns/<string:id>', methods=['DELETE'])
-def delete_column(id):
+@bp.route('/columns/<int:id>', methods=['DELETE'])
+def delete_column(id: int):
     try:
         column = ExamColumn.query.filter_by(id=id).first()
         if not column:
-            return jsonify({'success': False, 'message': '专栏不存在'}), 404
+            return fail('专栏不存在', 404)
         
         image_paths = [
             column.question_image_path1,
@@ -216,7 +222,7 @@ def delete_column(id):
         db.session.delete(column)
         db.session.commit()
         
-        return jsonify({'success': True, 'message': '专栏已删除'})
+        return ok(None, message='专栏已删除')
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'删除专栏失败：{str(e)}'}), 500
+        return fail(f'删除专栏失败：{str(e)}', 500)

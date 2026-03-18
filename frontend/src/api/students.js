@@ -9,7 +9,7 @@ export const getStudents = async () => {
     return response.data
   } catch (error) {
     console.error('获取学生列表失败:', error)
-    return []
+    return { success: false, data: [], message: '获取学生列表失败' }
   }
 }
 
@@ -20,7 +20,7 @@ export const getStudentById = async (id) => {
     return response.data
   } catch (error) {
     console.error(`获取学生${id}信息失败:`, error)
-    return null
+    return { success: false, data: null, message: '获取学生信息失败' }
   }
 }
 
@@ -31,7 +31,7 @@ export const updateStudent = async (id, studentData) => {
     return response.data
   } catch (error) {
     console.error(`更新学生${id}信息失败:`, error)
-    return null
+    return { success: false, data: null, message: '更新学生信息失败' }
   }
 }
 
@@ -42,7 +42,7 @@ export const addStudent = async (studentData) => {
     return response.data
   } catch (error) {
     console.error('添加学生失败:', error)
-    return null
+    return { success: false, data: null, message: '添加学生失败' }
   }
 }
 
@@ -53,6 +53,6 @@ export const deleteStudent = async (id) => {
     return response.data
   } catch (error) {
     console.error(`删除学生${id}失败:`, error)
-    return null
+    return { success: false, data: null, message: '删除学生失败' }
   }
 }

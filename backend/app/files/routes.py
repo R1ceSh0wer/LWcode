@@ -5,6 +5,7 @@ from utils import allowed_file, save_uploaded_file
 import os
 import uuid
 import time
+from app.api_response import ok, fail
 from app.files import bp
 
 
@@ -17,31 +18,26 @@ def upload_file():
             os.makedirs(upload_folder)
         
         if 'file' not in request.files:
-            return jsonify({'success': False, 'message': '没有文件上传'}), 400
+            return fail('没有文件上传', 400)
         
         file = request.files['file']
         
         if file.filename == '':
-            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+            return fail('没有选择文件', 400)
         
         if not allowed_file(file.filename):
-            return jsonify({'success': False, 'message': '文件类型不支持'}), 400
+            return fail('文件类型不支持', 400)
         
         file_path, filename = save_uploaded_file(file)
         
         if not file_path:
-            return jsonify({'success': False, 'message': '文件保存失败'}), 500
+            return fail('文件保存失败', 500)
         
-        return jsonify({
-            'success': True,
-            'message': '文件上传成功',
-            'fileUrl': f'uploads/{filename}',
-            'filename': filename
-        })
+        return ok({'fileUrl': f'uploads/{filename}', 'filename': filename}, message='文件上传成功')
     
     except Exception as e:
         print(f"Error: {str(e)}")
-        return jsonify({'success': False, 'message': f'文件上传失败：{str(e)}'}), 500
+        return fail(f'文件上传失败：{str(e)}', 500)
 
 
 @bp.route('/images', methods=['GET'])
@@ -50,7 +46,7 @@ def get_images():
     upload_folder = os.path.join(os.getcwd(), 'uploads')
     try:
         if not os.path.exists(upload_folder):
-            return jsonify([])
+            return ok([])
         
         files = []
         for filename in os.listdir(upload_folder):
@@ -63,9 +59,9 @@ def get_images():
                     'created': datetime.fromtimestamp(os.path.getctime(os.path.join(upload_folder, filename))).strftime('%Y-%m-%d %H:%M:%S')
                 })
         
-        return jsonify(files)
+        return ok(files)
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取图片列表失败：{str(e)}'}), 500
+        return fail(f'获取图片列表失败：{str(e)}', 500)
 
 
 @bp.route('/images/<string:id>', methods=['GET'])
@@ -76,20 +72,17 @@ def get_image_by_id(id):
     
     try:
         if not os.path.exists(file_path):
-            return jsonify({'success': False, 'message': '图片不存在'}), 404
+            return fail('图片不存在', 404)
         
-        return jsonify({
-            'success': True,
-            'data': {
-                'id': id,
-                'name': id,
-                'url': f'uploads/{id}',
-                'size': os.path.getsize(file_path),
-                'created': datetime.fromtimestamp(os.path.getctime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
-            }
+        return ok({
+            'id': id,
+            'name': id,
+            'url': f'uploads/{id}',
+            'size': os.path.getsize(file_path),
+            'created': datetime.fromtimestamp(os.path.getctime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
         })
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取图片失败：{str(e)}'}), 500
+        return fail(f'获取图片失败：{str(e)}', 500)
 
 
 @bp.route('/images/<string:id>', methods=['DELETE'])
@@ -100,12 +93,12 @@ def delete_image_by_id(id):
     
     try:
         if not os.path.exists(file_path):
-            return jsonify({'success': False, 'message': '图片不存在'}), 404
+            return fail('图片不存在', 404)
         
         os.remove(file_path)
-        return jsonify({'success': True, 'message': '图片删除成功'})
+        return ok(None, message='图片删除成功')
     except Exception as e:
-        return jsonify({'success': False, 'message': f'删除图片失败：{str(e)}'}), 500
+        return fail(f'删除图片失败：{str(e)}', 500)
 
 
 @bp.route('/images/batch', methods=['DELETE'])
@@ -116,7 +109,7 @@ def delete_images_batch():
     try:
         data = request.get_json()
         if not data or 'ids' not in data:
-            return jsonify({'success': False, 'message': '缺少图片ID列表'}), 400
+            return fail('缺少图片ID列表', 400)
         
         ids = data['ids']
         deleted = []
@@ -133,14 +126,9 @@ def delete_images_batch():
             except Exception as e:
                 failed.append({'id': id, 'message': str(e)})
         
-        return jsonify({
-            'success': True,
-            'message': f'成功删除 {len(deleted)} 张图片',
-            'deleted': deleted,
-            'failed': failed
-        })
+        return ok({'deleted': deleted, 'failed': failed}, message=f'成功删除 {len(deleted)} 张图片')
     except Exception as e:
-        return jsonify({'success': False, 'message': f'批量删除失败：{str(e)}'}), 500
+        return fail(f'批量删除失败：{str(e)}', 500)
 
 
 @bp.route('/images/stats', methods=['GET'])
@@ -150,13 +138,7 @@ def get_image_stats():
     
     try:
         if not os.path.exists(upload_folder):
-            return jsonify({
-                'success': True,
-                'data': {
-                    'total': 0,
-                    'size': 0
-                }
-            })
+            return ok({'total': 0, 'size': 0})
         
         files = []
         total_size = 0
@@ -165,15 +147,9 @@ def get_image_stats():
                 files.append(filename)
                 total_size += os.path.getsize(os.path.join(upload_folder, filename))
         
-        return jsonify({
-            'success': True,
-            'data': {
-                'total': len(files),
-                'size': total_size
-            }
-        })
+        return ok({'total': len(files), 'size': total_size})
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取统计信息失败：{str(e)}'}), 500
+        return fail(f'获取统计信息失败：{str(e)}', 500)
 
 
 @bp.route('/uploads/<path:filename>', methods=['GET'])
@@ -191,14 +167,14 @@ def get_image(filename):
 @bp.route('/files/images', methods=['POST'])
 def upload_image():
     if 'file' not in request.files:
-        return jsonify({'success': False, 'message': '没有文件上传'}), 400
+        return fail('没有文件上传', 400)
     
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'success': False, 'message': '没有选择文件'}), 400
+        return fail('没有选择文件', 400)
     
     if not allowed_file(file.filename):
-        return jsonify({'success': False, 'message': '文件类型不支持'}), 400
+        return fail('文件类型不支持', 400)
     
     upload_folder = os.path.join(os.getcwd(), 'uploads')
     if not os.path.exists(upload_folder):
@@ -212,7 +188,4 @@ def upload_image():
     file_path = os.path.join(upload_folder, filename)
     file.save(file_path)
     
-    return jsonify({
-        'success': True,
-        'imageUrl': f'images/{filename}'
-    })
+    return ok({'imageUrl': f'images/{filename}'}, message='上传成功')
