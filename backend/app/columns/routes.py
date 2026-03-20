@@ -23,7 +23,8 @@ def get_columns():
                 'description': column.question_text or '',
                 'archiveId': column.archive_id,
                 'created': column.created_at.strftime('%Y-%m-%d'),
-                'teacherId': str(column.teacher_id)
+                'teacherId': str(column.teacher_id),
+                'humanKnowledgePath': column.human_knowledge or ''
             })
         
         return ok(result)
@@ -69,6 +70,22 @@ def create_column():
             question_text="",
             archive_id=archive_id
         )
+        # 处理人工标注知识点文件上传
+        human_knowledge_file = request.files.get('human_knowledge_file')
+        human_knowledge_path = None
+        if human_knowledge_file:
+            # 该字段只允许 txt；这里不要复用 allowed_file（它依赖 ALLOWED_EXTENSIONS）
+            if not human_knowledge_file.filename.lower().endswith('.txt'):
+                db.session.rollback()
+                return fail('只允许上传 TXT 格式的知识点标注文件', 400)
+            file_path, filename = save_uploaded_file(human_knowledge_file, allowed_exts={'txt'})
+            if file_path:
+                human_knowledge_path = f'uploads/{filename}'
+                new_column.human_knowledge = human_knowledge_path
+            else:
+                db.session.rollback()
+                return fail('保存知识点标注文件失败', 500)
+        
         db.session.add(new_column)
         db.session.commit()
         

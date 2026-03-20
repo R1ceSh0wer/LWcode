@@ -24,7 +24,7 @@ print(f'[NeuralCDM] BASE_DIR: {BASE_DIR}')
 print(f'[NeuralCDM] UPLOAD_FOLDER: {UPLOAD_FOLDER}')
 print(f'[NeuralCDM] ARCHIVES_FOLDER: {ARCHIVES_FOLDER}')
 
-def _call_diagnosis_service(student_id, exercise_ids, knowledge_codes, model_path):
+def _call_diagnosis_service(student_id, exercise_ids, knowledge_codes, model_path, knowledge_num):
     # 处理模型路径，确保使用正确的绝对路径
     if not os.path.isabs(model_path):
         # 优先尝试 archives 目录（因为模型文件存储在 backend/archives 下）
@@ -44,7 +44,8 @@ def _call_diagnosis_service(student_id, exercise_ids, knowledge_codes, model_pat
         'student_id': student_id,
         'exercise_ids': exercise_ids,
         'knowledge_codes': knowledge_codes,
-        'model_path': model_path
+        'model_path': model_path,
+        'knowledge_num': knowledge_num
     }
     
     try:
@@ -161,23 +162,23 @@ def load_neuralcdm_model(model_path):
     return {'path': model_path}
 
 
-def predict_student_performance(model, student_id, exercise_ids, knowledge_codes):
+def predict_student_performance(model, student_id, column_id, exercise_ids, actual_scores, question_knowledge, knowledge_num):
     if model is None:
         print(f'[NeuralCDM] 模型未加载，返回默认预测值')
-        return [0.5] * len(exercise_ids)
+        return [0.5] * len(exercise_ids), None
     
     model_path = model.get('path') if isinstance(model, dict) else model
     
     predictions, mastery = _call_diagnosis_service(
-        student_id, exercise_ids, knowledge_codes, model_path
+        student_id, exercise_ids, question_knowledge, model_path, knowledge_num
     )
     
-    if predictions is not None:
+    if predictions is not None and mastery is not None:
         print(f'[NeuralCDM] 诊断服务返回预测成功')
-        return predictions
+        return predictions, mastery
     else:
         print(f'[NeuralCDM] 诊断服务失败，返回默认预测值')
-        return [0.5] * len(exercise_ids)
+        return [0.5] * len(exercise_ids), None
 
 
 def get_student_knowledge_status(model, student_id):
@@ -189,7 +190,11 @@ def get_student_knowledge_status(model, student_id):
     model_path = model.get('path') if isinstance(model, dict) else model
     
     predictions, mastery = _call_diagnosis_service(
-        student_id, [0], [[0]], model_path
+        student_id,
+        [0],
+        {'img_0': [0]},
+        model_path,
+        knowledge_n
     )
     
     if mastery is not None:

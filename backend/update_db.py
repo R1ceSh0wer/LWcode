@@ -17,26 +17,37 @@ db.init_app(app)
 
 with app.app_context():
     # 检查并添加字段
-    from sqlalchemy import inspect
+    from sqlalchemy import inspect, text
     inspector = inspect(db.engine)
-    columns = [column['name'] for column in inspector.get_columns('comments')]
     
-    if 'answer_result' not in columns:
-        db.engine.execute('ALTER TABLE comments ADD COLUMN answer_result TEXT')
+    # 更新 comments 表
+    comment_columns = [column['name'] for column in inspector.get_columns('comments')]
+    
+    if 'answer_result' not in comment_columns:
+        db.session.execute(text('ALTER TABLE comments ADD COLUMN answer_result TEXT'))
         print('添加 answer_result 字段成功')
     else:
         print('answer_result 字段已存在')
     
-    if 'cdm_predictions' not in columns:
-        db.engine.execute('ALTER TABLE comments ADD COLUMN cdm_predictions TEXT')
+    if 'cdm_predictions' not in comment_columns:
+        db.session.execute(text('ALTER TABLE comments ADD COLUMN cdm_predictions TEXT'))
         print('添加 cdm_predictions 字段成功')
     else:
         print('cdm_predictions 字段已存在')
     
-    if 'student_proficiency' not in columns:
-        db.engine.execute('ALTER TABLE comments ADD COLUMN student_proficiency FLOAT')
+    if 'student_proficiency' not in comment_columns:
+        db.session.execute(text('ALTER TABLE comments ADD COLUMN student_proficiency FLOAT'))
         print('添加 student_proficiency 字段成功')
     else:
         print('student_proficiency 字段已存在')
+
+    # 更新 exam_columns 表
+    exam_column_columns = [column['name'] for column in inspector.get_columns('exam_columns')]
+    if 'human_knowledge' not in exam_column_columns:
+        db.session.execute(text('ALTER TABLE exam_columns ADD COLUMN human_knowledge VARCHAR(200)'))
+        print('添加 human_knowledge 字段成功')
+    else:
+        print('human_knowledge 字段已存在')
+    db.session.commit() # Commit the changes
 
 print('数据库更新完成')

@@ -20,8 +20,8 @@ knowledge_n = 196
 student_n = 190
 
 class NeuralCDMNet(nn.Module):
-    def __init__(self):
-        self.knowledge_dim = knowledge_n
+    def __init__(self, knowledge_dim):
+        self.knowledge_dim = knowledge_dim
         self.exer_n = exer_n
         self.emb_num = student_n
         self.stu_dim = self.knowledge_dim
@@ -68,8 +68,8 @@ class NeuralCDMNet(nn.Module):
 gpu_n = 0
 device = torch.device(('cuda:'+str(gpu_n)) if torch.cuda.is_available() else 'cpu')
 
-def load_model(model_path):
-    model = NeuralCDMNet().to(device)
+def load_model(model_path, knowledge_dim_param):
+    model = NeuralCDMNet(knowledge_dim=knowledge_dim_param).to(device)
     if os.path.exists(model_path):
         try:
             checkpoint = torch.load(model_path, map_location=device, weights_only=False)
@@ -89,17 +89,21 @@ def load_model(model_path):
             return None
     return None
 
-def predict(model, student_id, exercise_ids, knowledge_codes):
+def predict(model, student_id, exercise_ids, knowledge_codes_dict, knowledge_num):
     import numpy as np
     
     student_id = torch.LongTensor([student_id]).to(device)
     exercise_ids_tensor = torch.LongTensor(exercise_ids).to(device)
     
-    knowledge_masks = torch.zeros((len(exercise_ids), knowledge_n)).to(device)
-    for i, codes in enumerate(knowledge_codes):
-        for code in codes:
-            if 0 <= code < knowledge_n:
-                knowledge_masks[i, code] = 1
+    knowledge_masks = torch.zeros((len(exercise_ids), knowledge_num)).to(device)
+    for i, exer_id in enumerate(exercise_ids):
+        # Construct the key for knowledge_codes_dict, e.g., "img_1", "img_2"
+        key = f'img_{exer_id}'
+        if key in knowledge_codes_dict:
+            codes = knowledge_codes_dict[key]
+            for code in codes:
+                if 0 <= code < knowledge_num:
+                    knowledge_masks[i, code] = 1
     
     with torch.no_grad():
         stu_id_expanded = student_id.expand(len(exercise_ids))
@@ -118,10 +122,11 @@ if __name__ == '__main__':
     exercise_ids = input_data['exercise_ids']
     knowledge_codes = input_data['knowledge_codes']
     model_path = input_data['model_path']
+    knowledge_num = input_data['knowledge_num']
     
-    model = load_model(model_path)
+    model = load_model(model_path, knowledge_num)
     if model:
-        predictions, mastery = predict(model, student_id, exercise_ids, knowledge_codes)
+        predictions, mastery = predict(model, student_id, exercise_ids, knowledge_codes, knowledge_num)
         result = {'success': True, 'predictions': predictions, 'mastery': mastery}
     else:
         result = {'success': False, 'error': 'Model load failed'}

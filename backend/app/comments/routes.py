@@ -8,7 +8,108 @@ from utils import allowed_file, ocr_process, batch_ocr_process, call_ai_service,
 from neuralcdm_predict import load_neuralcdm_model, predict_student_performance, analyze_student_weaknesses, format_cdm_predictions
 import os
 import json
+import re
 from . import bp
+
+def _parse_human_knowledge_file(file_path):
+    """
+    解析人工标注知识点文件。
+
+    支持两种常见形式（txt 文件）：
+    1) JSON：
+       {"1": [3,4], "2": [5]}
+    2) 键值对文本（中文冒号/英文冒号均可）：
+       1: 3,4
+       2：5
+
+    返回值：
+      { "题号(字符串)": [知识点序号(int), ...], ... }
+    """
+    try:
+        if not file_path or not os.path.exists(file_path):
+            return None
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+
+        if not content:
+            return None
+
+        # --- 1) 先尝试 JSON 解析（兼容中文引号） ---
+        try:
+            normalized = (
+                content.replace('“', '"')
+                .replace('”', '"')
+                .replace("‘", "'")
+                .replace("’", "'")
+            )
+            data = json.loads(normalized)
+            if isinstance(data, dict):
+                parsed_data = {}
+                for key, value in data.items():
+                    key_str = str(key).strip()
+                    if isinstance(value, list):
+                        nums = []
+                        for x in value:
+                            if isinstance(x, (int, float)):
+                                nums.append(int(x))
+                            else:
+                                x_str = str(x).strip()
+                                if re.fullmatch(r'-?\d+', x_str):
+                                    nums.append(int(x_str))
+                        if nums:
+                            parsed_data[key_str] = nums
+                    else:
+                        # 允许 value 直接为单个数字
+                        nums = [int(m.group(0)) for m in re.finditer(r'-?\d+', str(value))]
+                        if nums:
+                            parsed_data[key_str] = nums
+
+                return parsed_data or None
+        except Exception:
+            # JSON 解析失败后走文本解析
+            pass
+
+        # --- 2) 文本键值对解析 ---
+        # 例：1: 2,3   或 1： [2,3]  或 "1": [2,3]
+        parsed_data = {}
+        # 尝试按行解析；若全文件是单行，也能解析出结果（通过 splitlines）
+        for raw_line in content.splitlines():
+            line = raw_line.strip().strip(',')
+            if not line:
+                continue
+
+            # 去掉可能的左右花括号（只为兼容某些粘贴格式）
+            line = line.strip('{}').strip()
+            if not line:
+                continue
+
+            # 查找“题号 : 内容”结构
+            parts = re.split(r'[:：=]', line, maxsplit=1)
+            if len(parts) < 2:
+                continue
+
+            left, right = parts[0].strip(), parts[1].strip()
+
+            # 题号取左侧第一个整数
+            q_nums = re.findall(r'\d+', left)
+            if not q_nums:
+                continue
+            q_key = q_nums[0]
+
+            # 右侧抽取所有整数作为知识点序号
+            nums = [int(m.group(0)) for m in re.finditer(r'-?\d+', right)]
+            if not nums:
+                continue
+
+            # 按出现顺序保留（不做 sorted）
+            parsed_data[str(q_key)] = nums
+
+        return parsed_data or None
+
+    except Exception as e:
+        print(f"[ERROR] 读取或解析人工标注文件 {file_path} 失败: {str(e)}")
+        return None
 
 
 @bp.route('/comments', methods=['GET'])
@@ -298,6 +399,36 @@ def generate_comment():
         if not column:
             return fail('专栏不存在', 404)
         
+        # 检查并加载人工标注知识点文件
+        human_knowledge_data = None
+        if column.human_knowledge:
+            human_knowledge_full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], os.path.basename(column.human_knowledge))
+            if os.path.exists(human_knowledge_full_path):
+                human_knowledge_data = _parse_human_knowledge_file(human_knowledge_full_path)
+                if human_knowledge_data:
+                    print(f'[INFO] 成功加载人工标注知识点文件: {human_knowledge_full_path}')
+                else:
+                    print(f'[WARN] 人工标注知识点文件 {human_knowledge_full_path} 格式不正确或为空')
+            else:
+                print(f'[WARN] 人工标注知识点文件不存在: {human_knowledge_full_path}')
+
+        # 计算专栏图片数量
+        column_image_count = 0
+        for i in range(1, 7):
+            image_path = getattr(column, f'question_image_path{i}')
+            if image_path and image_path != '无' and image_path != '':
+                column_image_count += 1
+        
+        # 计算学生上传的图片数量
+        student_image_count = 0
+        if image_paths:
+            student_image_count = len([p for p in image_paths if p and p != '无' and p != ''])
+        elif image_ids:
+            student_image_count = len([i for i in image_ids if i])
+        
+        print(f'[DEBUG] 专栏图片数量: {column_image_count}')
+        print(f'[DEBUG] 学生上传图片数量: {student_image_count}')
+        
         existing_comment = Comment.query.filter_by(
             student_id=student_id,
             column_id=column_id
@@ -508,28 +639,70 @@ def generate_comment():
             print(f'[NeuralCDM] 学生ID: {student_id_int}')
             
             exercise_ids = []
-            knowledge_codes = []
+            knowledge_codes = []  # 用于Dify：与 exercise_ids 一一对应的知识点序号列表
+            knowledge_codes_dict = {}  # 用于NeuralCDM：键为 img_{题号}
             actual_scores = []
             
-            question_knowledge = {}
-            if column.question_knowledge:
-                try:
-                    question_knowledge = json.loads(column.question_knowledge)
-                    print(f'[NeuralCDM] 加载专栏知识点: {question_knowledge}')
-                except:
-                    print(f'[NeuralCDM] 知识点解析失败，使用默认值')
-            
-            for i, result in enumerate(flattened_results):
-                exer_id = i + 1
-                exercise_ids.append(exer_id)
-                
-                q_key = str(exer_id)
-                if q_key in question_knowledge and question_knowledge[q_key]:
-                    kc = question_knowledge[q_key]
+            # Prepare model-predicted knowledge: { "1": [knowledge_id,...], ... }
+            base_question_knowledge = json.loads(column.question_knowledge) if column.question_knowledge else {}
+            if not isinstance(base_question_knowledge, dict):
+                base_question_knowledge = {}
+
+            # 归一化：确保键为字符串，值为 int 列表
+            normalized_base = {}
+            for q_key, codes in base_question_knowledge.items():
+                q_str = str(q_key).strip()
+                if not q_str:
+                    continue
+
+                if isinstance(codes, list):
+                    norm_codes = []
+                    for c in codes:
+                        try:
+                            norm_codes.append(int(c))
+                        except Exception:
+                            continue
+                    if norm_codes:
+                        normalized_base[q_str] = norm_codes
                 else:
-                    kc = [exer_id]
-                knowledge_codes.append(kc)
-                
+                    try:
+                        normalized_base[q_str] = [int(codes)]
+                    except Exception:
+                        continue
+            base_question_knowledge = normalized_base
+
+            knowledge_num = 196  # 与 NeuralCDM_plus-main/diagnosis_service.py 的 knowledge_n 一致
+
+            # 基于“题号”构建 knowledge_codes / knowledge_masks 输入
+            # 注意：flatttened_results 的顺序由 batch_compare_images 按题号生成，因此 i+1 就是题号
+            for i, result in enumerate(flattened_results):
+                exer_id = i + 1  # 题号
+                exercise_ids.append(exer_id)
+
+                q_key = str(exer_id)
+                base_codes = base_question_knowledge.get(q_key) or []
+                if not base_codes:
+                    base_codes = [exer_id]
+
+                human_codes = []
+                if human_knowledge_data:
+                    human_codes = human_knowledge_data.get(q_key) or []
+
+                # 按要求：人工标注“追加”到模型预测之后，并保留序列顺序（去重但不打乱）
+                merged_codes = []
+                seen = set()
+                for c in list(base_codes) + list(human_codes):
+                    try:
+                        c_int = int(c)
+                    except Exception:
+                        continue
+                    if c_int not in seen:
+                        merged_codes.append(c_int)
+                        seen.add(c_int)
+
+                knowledge_codes.append(merged_codes)
+                knowledge_codes_dict[f'img_{exer_id}'] = merged_codes
+
                 if result is True:
                     actual_scores.append(1)
                 elif result is False:
@@ -554,11 +727,14 @@ def generate_comment():
                 print(f'[DEBUG] exercise_ids: {exercise_ids}')
                 print(f'[DEBUG] knowledge_codes: {knowledge_codes}')
                 
-                predictions = predict_student_performance(
+                predictions, _mastery = predict_student_performance(
                     cdm_model, 
                     student_id_int, 
-                    exercise_ids, 
-                    knowledge_codes
+                    column.id,
+                    exercise_ids,
+                    actual_scores,
+                    knowledge_codes_dict,
+                    knowledge_num
                 )
                 
                 print(f'[DEBUG] 预测结果: {predictions}')
@@ -713,7 +889,7 @@ def generate_comment():
             "answerImagePath6": updated_comment.answer_image_path6
         }
         
-        return ok({
+        response_data = {
             'id': str(updated_comment.id),
             'columnId': str(updated_comment.column_id),
             'studentId': str(updated_comment.student_id),
@@ -726,7 +902,15 @@ def generate_comment():
             **answer_image_paths_dict,
             'createdAt': updated_comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'isRegenerated': updated_comment.is_regenerated
-        }, status_code=201)
+        }
+        
+        if column_image_count > 0 and student_image_count != column_image_count:
+            response_data['imageCountMismatch'] = True
+            response_data['columnImageCount'] = column_image_count
+            response_data['studentImageCount'] = student_image_count
+            response_data['warningMessage'] = f'注意：专栏有 {column_image_count} 张图片，但学生只上传了 {student_image_count} 张图片，请检查上传图片数量是否正确！'
+        
+        return ok(response_data, status_code=201)
     except Exception as e:
         db.session.rollback()
         return fail(f'生成评语失败：{str(e)}', 500)

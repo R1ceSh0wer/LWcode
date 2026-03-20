@@ -39,7 +39,9 @@ export const updateColumn = async (id, columnData) => {
 export const addColumn = async (columnData) => {
   try {
     // 检查是否有图片文件需要上传
-    const hasFiles = columnData.imageFiles && columnData.imageFiles.length > 0;
+    const hasImageFiles = columnData.imageFiles && columnData.imageFiles.length > 0
+    const hasHumanKnowledgeFile = !!columnData.humanKnowledgeFile
+    const hasFiles = hasImageFiles || hasHumanKnowledgeFile;
     
     if (hasFiles) {
       // 创建FormData对象
@@ -52,9 +54,16 @@ export const addColumn = async (columnData) => {
       
       
       // 添加图片文件
-      columnData.imageFiles.forEach((file, index) => {
-        formData.append(`image${index + 1}`, file);
-      });
+      if (hasImageFiles) {
+        columnData.imageFiles.forEach((file, index) => {
+          formData.append(`image${index + 1}`, file);
+        });
+      }
+
+      // 添加人工标注知识点文件（可选）
+      if (hasHumanKnowledgeFile) {
+        formData.append('human_knowledge_file', columnData.humanKnowledgeFile);
+      }
       
       // 发送FormData请求
       const response = await axios.post(`${API_BASE_URL}/columns`, formData, {

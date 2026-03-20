@@ -569,7 +569,7 @@
                 :class="['tab-button', { active: createMode === 'train' }]"
                 @click="createMode = 'train'"
               >
-                上传训练文件
+                上传训练文件（测试中）
               </button>
             </div>
             
@@ -763,6 +763,20 @@
           <div class="form-group">
             <label class="form-label">上传试题图片</label>
             <ImageUpload ref="columnImageUpload" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              题目知识点标注文件（可选，txt）
+            </label>
+            <input
+              ref="humanKnowledgeFileInput"
+              type="file"
+              accept=".txt"
+              class="form-input"
+              @change="handleHumanKnowledgeFileUpload"
+            />
+            <p class="form-hint">格式示例：{"1":[3,4],"2":[5]} 或 1: 3,4</p>
           </div>
         </div>
         
@@ -1281,6 +1295,8 @@ const isColumnModalVisible = ref(false);
 const isCreatingColumn = ref(false);
 const newColumn = ref({ name: '', archiveId: '' });
 const columnImageUpload = ref(null);
+const humanKnowledgeFileForCreate = ref(null);
+const humanKnowledgeFileInput = ref(null);
 
 // 查看/修改专栏信息（图片只读）
 const isColumnInfoModalVisible = ref(false);
@@ -1363,6 +1379,41 @@ const batchImageUploads = ref(null);
 const uploadedImages = ref([]);
 const previewImages = ref([]);
 const imageUploadKey = ref(0);
+
+// 缓存专栏题目图片数量，避免每次都请求
+const columnImageCountCache = ref(new Map());
+const getColumnImageCount = async (columnId) => {
+  if (!columnId) return 0;
+  const key = String(columnId);
+  if (columnImageCountCache.value.has(key)) {
+    return columnImageCountCache.value.get(key);
+  }
+  const resp = await getColumnById(columnId);
+  if (!resp?.success || !resp?.data) {
+    // 获取失败时不阻断流程，返回0表示无法校验
+    return 0;
+  }
+  const col = resp.data;
+  const paths = [
+    col.questionImagePath1,
+    col.questionImagePath2,
+    col.questionImagePath3,
+    col.questionImagePath4,
+    col.questionImagePath5,
+    col.questionImagePath6
+  ].filter(p => p && String(p).trim() !== '' && String(p).trim() !== '无');
+  const count = paths.length;
+  columnImageCountCache.value.set(key, count);
+  return count;
+};
+
+const getImageUploadSelectedCount = (uploadRefValue) => {
+  const previewImagesMaybeRef = uploadRefValue?.previewImages;
+  if (Array.isArray(previewImagesMaybeRef)) return previewImagesMaybeRef.length;
+  const v = previewImagesMaybeRef?.value;
+  if (Array.isArray(v)) return v.length;
+  return 0;
+};
 
 // 账号管理
 const accounts = ref([]);
@@ -1641,6 +1692,40 @@ const generateBatchComments = async () => {
   isBatchGenerating.value = true;
   
   try {
+    // ====== 前置校验：专栏图片数 vs 批量上传图片数（立即提示，不阻断后续生成） ======
+    const columnCount = await getColumnImageCount(selectedColumnId.value);
+    if (columnCount > 0) {
+      // 先保存当前页面学生的图片（确保 batchImagePaths 最新），再做校验
+      if (batchImageUploads.value) {
+        try {
+          const uploadedImages = await batchImageUploads.value.uploadImages(true);
+          const imagePaths = uploadedImages.map(img => {
+            if (img.path && img.path.startsWith('http://localhost:5000/')) {
+              return img.path.replace('http://localhost:5000/', '');
+            }
+            return img.path;
+          });
+          batchImagePaths.value[currentBatchIndex.value] = imagePaths;
+        } catch (error) {
+          console.error(`[批量生成] 前置校验阶段保存当前学生图片失败:`, error);
+        }
+      }
+
+      const earlyWarnings = [];
+      for (let i = 0; i < batchStudents.value.length; i++) {
+        const student = batchStudents.value[i];
+        const imagePaths = batchImagePaths.value[i] || [];
+        const studentCount = (imagePaths || []).filter(p => p && String(p).trim() !== '' && String(p).trim() !== '无').length;
+        if (studentCount !== columnCount) {
+          earlyWarnings.push(`${student.name}: 专栏 ${columnCount} 张，已上传 ${studentCount} 张`);
+        }
+      }
+      if (earlyWarnings.length > 0) {
+        alert(`注意：检测到上传图片数量与专栏不一致，已终止批量生成。\n\n${earlyWarnings.join('\n')}`);
+        return;
+      }
+    }
+
     // 先保存当前学生的图片（如果是最后一个学生）
     if (batchImageUploads.value) {
       try {
@@ -1661,6 +1746,7 @@ const generateBatchComments = async () => {
     // 并行处理，每次处理2-3个学生
     const batchSize = 2;
     const totalBatches = Math.ceil(batchStudents.value.length / batchSize);
+    const mismatchWarnings = [];
     
     for (let i = 0; i < totalBatches; i++) {
       const start = i * batchSize;
@@ -1687,6 +1773,7 @@ const generateBatchComments = async () => {
         
         // 生成评语
         const result = await apiGenerateComment(commentData);
+        
         return result;
       });
       
@@ -1711,8 +1798,12 @@ const generateBatchComments = async () => {
 
 // 关闭专栏模态框
 const closeColumnModal = () => {
-  newColumn.value = { name: '', description: '' };
+  newColumn.value = { name: '', archiveId: '' };
   isColumnModalVisible.value = false;
+  humanKnowledgeFileForCreate.value = null;
+  if (humanKnowledgeFileInput.value) {
+    humanKnowledgeFileInput.value.value = '';
+  }
 };
 
 const closeColumnInfoModal = () => {
@@ -2077,6 +2168,12 @@ const loadAccounts = async () => {
   }
 };
 
+// 处理题目知识点标注文件选择（创建专栏用）
+const handleHumanKnowledgeFileUpload = (event) => {
+  const file = event?.target?.files?.[0] || null;
+  humanKnowledgeFileForCreate.value = file;
+};
+
 // 创建专栏
 const createColumn = async () => {
   if (!newColumn.value.name) {
@@ -2097,6 +2194,11 @@ const createColumn = async () => {
       archiveId: newColumn.value.archiveId,
       teacherId: 1 // 默认教师 ID 为 1
     };
+
+    // 可选：题目知识点标注文件（txt）
+    if (humanKnowledgeFileForCreate.value) {
+      columnData.humanKnowledgeFile = humanKnowledgeFileForCreate.value;
+    }
     
     // 获取预览图片的文件对象
     if (columnImageUpload.value) {
@@ -2112,6 +2214,10 @@ const createColumn = async () => {
       columns.value.push(result.data);
       newColumn.value = { name: '', archiveId: '' };
       isColumnModalVisible.value = false;
+      humanKnowledgeFileForCreate.value = null;
+      if (humanKnowledgeFileInput.value) {
+        humanKnowledgeFileInput.value.value = '';
+      }
       // 清空图片上传组件的预览
       if (columnImageUpload.value) {
         columnImageUpload.value.clearAll();
@@ -2131,6 +2237,20 @@ const createColumn = async () => {
 const generateComment = async () => {
   if (!selectedStudentId.value || !selectedColumnId.value) return;
   
+  // ====== 前置校验：专栏图片数 vs 当前选择上传数（立即提示，不阻断后续生成） ======
+  try {
+    const columnCount = await getColumnImageCount(selectedColumnId.value);
+    // 这里使用“预览区已选择的图片数”，因为 uploadImages() 会清空预览
+    const selectedCount = getImageUploadSelectedCount(imageUpload.value);
+    if (columnCount > 0 && selectedCount !== columnCount) {
+      alert(`注意：当前专栏有 ${columnCount} 张试题图片，但你选择上传了 ${selectedCount} 张答案图片，请检查上传图片数量是否正确！`);
+      return;
+    }
+  } catch (e) {
+    // 校验失败不影响主流程
+    console.error('前置图片数量校验失败:', e);
+  }
+
   isGenerating.value = true;
   isStoring.value = true;
   

@@ -982,13 +982,29 @@ def construct_summary_prompt(student_info, past_comments):
     """
     return prompt
 
-def save_uploaded_file(file):
+def save_uploaded_file(file, allowed_exts=None):
     """
     保存上传的文件并返回路径
     """
-    if file and allowed_file(file.filename):
+    if not file:
+        return None, None
+
+    filename = getattr(file, 'filename', '') or ''
+    if not filename:
+        return None, None
+
+    # 如果调用方显式指定允许扩展名，则按其校验；否则沿用 ALLOWED_EXTENSIONS
+    if allowed_exts is not None:
+        ext = os.path.splitext(filename)[1].lower().lstrip('.')
+        if ext not in set(e.lower() for e in allowed_exts):
+            return None, None
+    else:
+        if not allowed_file(filename):
+            return None, None
+
+    if file:
         # 提取原始文件名和后缀名
-        original_filename = file.filename
+        original_filename = filename
         name, ext = os.path.splitext(original_filename)
         
         # 处理文件名部分，保留原始文件名信息

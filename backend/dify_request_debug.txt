@@ -12,47 +12,51 @@ Headers:
 
 Payload:
 {
-  "query": "{\"diagnosis\": {\"student_name\": \"小明\", \"average_prediction\": 0.9291, \"accuracy\": 1.0, \"knowledge_mastery\": {\"123\": {\"predicted_mastery\": 0.9291, \"actual_mastery\": 1.0, \"performance_gap\": -0.0709}, \"124\": {\"predicted_mastery\": 0.9291, \"actual_mastery\": 1.0, \"performance_gap\": -0.0709}, \"73\": {\"predicted_mastery\": 0.9293, \"actual_mastery\": 1.0, \"performance_gap\": -0.0707}, \"4\": {\"predicted_mastery\": 0.9284, \"actual_mastery\": 1.0, \"performance_gap\": -0.0716}}, \"strengths\": [123, 124, 73, 4], \"weaknesses\": []}, \"knowledge_names\": {\"73\": \"赋值语句\", \"123\": \"信息技术及其影响\", \"124\": \"信息技术发展脉络与趋势\", \"4\": \"数据的概念\"}, \"more\": {}}",
+  "query": "{\"diagnosis\": {\"student_name\": \"小明\", \"average_prediction\": 0.8981, \"accuracy\": 0.6667, \"knowledge_mastery\": {\"124\": {\"predicted_mastery\": 0.8981, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2315}, \"123\": {\"predicted_mastery\": 0.8981, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2315}, \"73\": {\"predicted_mastery\": 0.8981, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2315}, \"72\": {\"predicted_mastery\": 0.8257, \"actual_mastery\": 1.0, \"performance_gap\": -0.1743}, \"1\": {\"predicted_mastery\": 0.8548, \"actual_mastery\": 1.0, \"performance_gap\": -0.1452}}, \"strengths\": [72, 1], \"weaknesses\": []}, \"knowledge_names\": {\"1\": \"必修一 数据与计算\", \"72\": \"运算符与表达式\", \"73\": \"赋值语句\", \"123\": \"信息技术及其影响\", \"124\": \"信息技术发展脉络与趋势\"}, \"more\": {}}",
   "inputs": {
     "diagnosis": {
       "student_name": "小明",
-      "average_prediction": 0.9291,
-      "accuracy": 1.0,
+      "average_prediction": 0.8981,
+      "accuracy": 0.6667,
       "knowledge_mastery": {
-        "123": {
-          "predicted_mastery": 0.9291,
-          "actual_mastery": 1.0,
-          "performance_gap": -0.0709
-        },
         "124": {
-          "predicted_mastery": 0.9291,
-          "actual_mastery": 1.0,
-          "performance_gap": -0.0709
+          "predicted_mastery": 0.8981,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.2315
+        },
+        "123": {
+          "predicted_mastery": 0.8981,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.2315
         },
         "73": {
-          "predicted_mastery": 0.9293,
-          "actual_mastery": 1.0,
-          "performance_gap": -0.0707
+          "predicted_mastery": 0.8981,
+          "actual_mastery": 0.6666666666666666,
+          "performance_gap": 0.2315
         },
-        "4": {
-          "predicted_mastery": 0.9284,
+        "72": {
+          "predicted_mastery": 0.8257,
           "actual_mastery": 1.0,
-          "performance_gap": -0.0716
+          "performance_gap": -0.1743
+        },
+        "1": {
+          "predicted_mastery": 0.8548,
+          "actual_mastery": 1.0,
+          "performance_gap": -0.1452
         }
       },
       "strengths": [
-        123,
-        124,
-        73,
-        4
+        72,
+        1
       ],
       "weaknesses": []
     },
     "knowledge_names": {
+      "1": "必修一 数据与计算",
+      "72": "运算符与表达式",
       "73": "赋值语句",
       "123": "信息技术及其影响",
-      "124": "信息技术发展脉络与趋势",
-      "4": "数据的概念"
+      "124": "信息技术发展脉络与趋势"
     },
     "more": {}
   },
@@ -63,43 +67,47 @@ Payload:
 诊断数据 (格式化):
 {
   "student_name": "小明",
-  "average_prediction": 0.9291,
-  "accuracy": 1.0,
+  "average_prediction": 0.8981,
+  "accuracy": 0.6667,
   "knowledge_mastery": {
-    "123": {
-      "predicted_mastery": 0.9291,
-      "actual_mastery": 1.0,
-      "performance_gap": -0.0709
-    },
     "124": {
-      "predicted_mastery": 0.9291,
-      "actual_mastery": 1.0,
-      "performance_gap": -0.0709
+      "predicted_mastery": 0.8981,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.2315
+    },
+    "123": {
+      "predicted_mastery": 0.8981,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.2315
     },
     "73": {
-      "predicted_mastery": 0.9293,
-      "actual_mastery": 1.0,
-      "performance_gap": -0.0707
+      "predicted_mastery": 0.8981,
+      "actual_mastery": 0.6666666666666666,
+      "performance_gap": 0.2315
     },
-    "4": {
-      "predicted_mastery": 0.9284,
+    "72": {
+      "predicted_mastery": 0.8257,
       "actual_mastery": 1.0,
-      "performance_gap": -0.0716
+      "performance_gap": -0.1743
+    },
+    "1": {
+      "predicted_mastery": 0.8548,
+      "actual_mastery": 1.0,
+      "performance_gap": -0.1452
     }
   },
   "strengths": [
-    123,
-    124,
-    73,
-    4
+    72,
+    1
   ],
   "weaknesses": []
 }
 
 知识点名称:
 {
+  "1": "必修一 数据与计算",
+  "72": "运算符与表达式",
   "73": "赋值语句",
   "123": "信息技术及其影响",
-  "124": "信息技术发展脉络与趋势",
-  "4": "数据的概念"
+  "124": "信息技术发展脉络与趋势"
 }

@@ -18,4 +18,5 @@ class ExamColumn(db.Model):
     question_knowledge = db.Column(db.Text)  # 知识点映射（JSON 格式）
     archive_id = db.Column(db.Integer, db.ForeignKey('model_archives.id'))  # 关联的存档 ID
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    human_knowledge = db.Column(db.String(200)) # 人工标注知识点文件路径
     created_at = db.Column(db.DateTime, default=datetime.now)
