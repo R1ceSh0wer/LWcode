@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import db, Config
 from app.comments.models import Comment
+from app.resources.models import LearningResource, StudentResource
 
 # 创建 Flask 应用
 from flask import Flask
@@ -16,6 +17,9 @@ app.config.from_object(Config)
 db.init_app(app)
 
 with app.app_context():
+    db.create_all() # 创建所有未存在的表
+    print('所有数据库表已检查/创建')
+
     # 检查并添加字段
     from sqlalchemy import inspect, text
     inspector = inspect(db.engine)

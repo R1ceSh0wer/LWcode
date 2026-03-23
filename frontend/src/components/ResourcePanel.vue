@@ -3,75 +3,80 @@
     <div class="panel-header">
       <h2>资源面板</h2>
       <div class="search-filter">
-        <input 
-          type="text" 
-          v-model="searchQuery" 
-          placeholder="搜索资源..."
+        <input
+          type="text"
+          v-model="searchQuery"
+          placeholder="搜索资源名称..."
           class="search-input"
+          @input="scheduleReload"
         >
-        <select v-model="resourceType" class="filter-select">
+        <select v-model="resourceType" class="filter-select" @change="loadResources">
           <option value="all">全部类型</option>
-          <option value="document">文档</option>
-          <option value="video">视频</option>
-          <option value="exercise">练习题</option>
-          <option value="ppt">PPT</option>
+          <option value="文档">文档</option>
+          <option value="视频">视频</option>
+          <option value="练习题">练习题</option>
+          <option value="PPT">PPT</option>
+          <option value="其它">其它</option>
         </select>
       </div>
     </div>
 
     <div class="resources-grid">
-      <div 
-        v-for="resource in filteredResources" 
+      <div
+        v-for="resource in resources"
         :key="resource.id"
         class="resource-card"
       >
         <div class="resource-icon">
-          <i :class="getResourceIcon(resource.type)"></i>
+          {{ getResourceIcon(resource.type) }}
         </div>
         <div class="resource-info">
-          <h3 class="resource-title">{{ resource.title }}</h3>
-          <p class="resource-description">{{ resource.description }}</p>
+          <h3 class="resource-title">{{ resource.name }}</h3>
+          <p class="resource-description">
+            来自教师：{{ resource.teacherName || '—' }} · 发放时间 {{ formatDateTime(resource.distributedAt) }}
+          </p>
           <div class="resource-meta">
-            <span class="resource-type">{{ getResourceTypeText(resource.type) }}</span>
-            <span class="resource-date">{{ formatDate(resource.createdAt) }}</span>
-            <span class="resource-views">{{ resource.views }} 次浏览</span>
+            <span class="resource-type">{{ resource.type }}</span>
+            <span v-if="resource.readStatus" class="resource-date">已读</span>
+            <span v-else class="resource-views">未读</span>
           </div>
         </div>
         <div class="resource-actions">
-          <button @click="downloadResource(resource)" class="action-button download-button">
-            <i class="download-icon">↓</i> 下载
+          <button type="button" @click="downloadResource(resource)" class="action-button download-button">
+            <span class="download-icon">↓</span> 下载
           </button>
-          <button @click="previewResource(resource)" class="action-button preview-button">
-            <i class="preview-icon">👁️</i> 预览
+          <button type="button" @click="previewResource(resource)" class="action-button preview-button">
+            <span class="preview-icon">👁️</span> 预览
           </button>
         </div>
       </div>
-      
-      <div v-if="filteredResources.length === 0" class="no-resources">
+
+      <div v-if="!loading && resources.length === 0" class="no-resources">
         <div class="no-resources-icon">📚</div>
         <p>暂无匹配的资源</p>
         <small>尝试调整搜索条件或筛选器</small>
       </div>
+      <div v-if="loading" class="no-resources">
+        <p>加载中...</p>
+      </div>
     </div>
 
-    <!-- 资源预览模态框 -->
-    <div v-if="isPreviewVisible" class="modal-overlay" @click="closePreview">
-      <div class="preview-modal">
+    <div v-if="isPreviewVisible" class="modal-overlay" @click.self="closePreview">
+      <div class="preview-modal" @click.stop>
         <div class="preview-header">
-          <h3>{{ previewResourceData?.title }}</h3>
-          <button @click="closePreview" class="modal-close">×</button>
+          <h3>{{ previewResourceData?.name }}</h3>
+          <button type="button" @click="closePreview" class="modal-close">×</button>
         </div>
         <div class="preview-body">
           <div v-if="previewResourceData" class="preview-content">
             <div class="preview-info">
-              <p><strong>类型:</strong> {{ getResourceTypeText(previewResourceData.type) }}</p>
-              <p><strong>创建时间:</strong> {{ formatDate(previewResourceData.createdAt) }}</p>
-              <p><strong>浏览量:</strong> {{ previewResourceData.views }}</p>
-              <p><strong>描述:</strong> {{ previewResourceData.description }}</p>
+              <p><strong>类型:</strong> {{ previewResourceData.type }}</p>
+              <p><strong>发放时间:</strong> {{ formatDateTime(previewResourceData.distributedAt) }}</p>
+              <p><strong>教师:</strong> {{ previewResourceData.teacherName || '—' }}</p>
             </div>
             <div class="preview-actions">
-              <button @click="downloadResource(previewResourceData)" class="preview-download-button">
-                <i class="download-icon">↓</i> 下载资源
+              <button type="button" @click="downloadResource(previewResourceData)" class="preview-download-button">
+                <span class="download-icon">↓</span> 下载资源
               </button>
             </div>
           </div>
@@ -82,59 +87,60 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { getResources } from '../api/resources'
+import { ref, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '../store/auth'
+import { getStudentResources } from '../api/resources'
 
-// 组件状态
+const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
 const searchQuery = ref('')
 const resourceType = ref('all')
 const isPreviewVisible = ref(false)
 const previewResourceData = ref(null)
-
-// 资源数据
 const resources = ref([])
+const loading = ref(false)
 
-// 计算属性：过滤资源
-const filteredResources = computed(() => {
-  return resources.value.filter(resource => {
-    const matchesSearch = resource.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                          resource.description.toLowerCase().includes(searchQuery.value.toLowerCase())
-    const matchesType = resourceType.value === 'all' || resource.type === resourceType.value
-    return matchesSearch && matchesType
-  })
-})
+let searchTimer = null
+const scheduleReload = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    loadResources()
+  }, 300)
+}
 
-// 辅助函数
 const getResourceIcon = (type) => {
   const icons = {
-    document: '📄',
-    video: '🎥',
-    exercise: '📝',
-    ppt: '📊'
+    文档: '📄',
+    视频: '🎥',
+    练习题: '📝',
+    PPT: '📊',
+    其它: '📦',
   }
   return icons[type] || '📦'
 }
 
-const getResourceTypeText = (type) => {
-  const typeMap = {
-    document: '文档',
-    video: '视频',
-    exercise: '练习题',
-    ppt: 'PPT'
-  }
-  return typeMap[type] || '其他'
+const formatDateTime = (s) => {
+  if (!s) return '—'
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return s
+  return d.toLocaleString('zh-CN')
 }
 
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('zh-CN')
+const fileUrl = (resource) => {
+  const p = resource.filePath || ''
+  if (!p) return ''
+  const path = String(p).replace(/^\//, '')
+  return `http://localhost:5000/${path}`
 }
 
-// 资源操作
 const downloadResource = (resource) => {
-  console.log('下载资源:', resource)
-  // 这里可以实现实际的下载逻辑
-  alert(`开始下载: ${resource.title}`)
+  const url = fileUrl(resource)
+  if (!url) {
+    alert('文件路径无效')
+    return
+  }
+  window.open(url, '_blank')
 }
 
 const previewResource = (resource) => {
@@ -142,24 +148,44 @@ const previewResource = (resource) => {
   isPreviewVisible.value = true
 }
 
-// 预览模态框控制
 const closePreview = () => {
   isPreviewVisible.value = false
   previewResourceData.value = null
 }
 
-// 加载资源数据
 const loadResources = async () => {
+  const sid = user.value?.id
+  if (!sid) {
+    resources.value = []
+    return
+  }
+  loading.value = true
   try {
-    const data = await getResources()
-    resources.value = data
-  } catch (error) {
-    console.error('获取资源失败:', error)
+    const typeParam = resourceType.value === 'all' ? '' : resourceType.value
+    const resp = await getStudentResources(sid, typeParam, searchQuery.value.trim())
+    if (resp?.success) {
+      resources.value = Array.isArray(resp.data) ? resp.data : []
+    } else {
+      resources.value = []
+    }
+  } catch (e) {
+    console.error(e)
+    resources.value = []
+  } finally {
+    loading.value = false
   }
 }
 
-// 初始化
-loadResources()
+onMounted(() => {
+  loadResources()
+})
+
+watch(
+  () => user.value?.id,
+  () => {
+    loadResources()
+  }
+)
 </script>
 
 <style scoped>
@@ -363,7 +389,6 @@ loadResources()
   opacity: 0.8;
 }
 
-/* 预览模态框 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -467,22 +492,21 @@ loadResources()
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .panel-header {
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
   }
-  
+
   .search-filter {
     flex-direction: column;
   }
-  
+
   .search-input, .filter-select {
     width: 100%;
   }
-  
+
   .resources-grid {
     grid-template-columns: 1fr;
   }

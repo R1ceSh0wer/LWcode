@@ -447,10 +447,110 @@
       </div>
 
       <!-- 学习资源推荐界面 -->
-      <div v-else-if="activeTab === 'resource-recommendation'" class="empty-interface">
-        <h2>学习资源推荐</h2>
-        <p>学习资源推荐功能界面（内容待定）</p>
-      </div>
+      <div v-else-if="activeTab === 'resource-recommendation'" class="resource-management-interface">
+          <div class="page-header">
+            <h2>学习资源管理</h2>
+            <div class="header-actions">
+              <button @click="openCreateResourceModal" class="create-resource-button">
+                ➕ 创建上传资源
+              </button>
+            </div>
+          </div>
+
+          <div class="filter-section">
+            <div class="filter-group">
+              <label for="resource-type-filter">资源类型:</label>
+              <select
+                id="resource-type-filter"
+                v-model="resourceFilterType"
+                class="filter-select"
+              >
+                <option value="">所有类型</option>
+                <option value="文档">文档</option>
+                <option value="视频">视频</option>
+                <option value="练习题">练习题</option>
+                <option value="PPT">PPT</option>
+                <option value="其它">其它</option>
+              </select>
+            </div>
+            <div class="filter-group search-group">
+              <label for="resource-search-input">搜索资源:</label>
+              <input
+                id="resource-search-input"
+                v-model="resourceSearchQuery"
+                placeholder="输入资源名称"
+                class="search-input"
+              />
+            </div>
+          </div>
+
+          <div class="resources-container">
+            <table class="resources-table">
+              <thead>
+                <tr>
+                  <th>资源信息</th>
+                  <th>类型</th>
+                  <th>发放数量</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr 
+                  v-for="resource in filteredLearningResources" 
+                  :key="resource.id"
+                  class="resource-row"
+                >
+                  <td class="resource-info">
+                    <div class="resource-icon" :class="getResourceTypeClass(resource.type)">
+                      {{ getResourceTypeIcon(resource.type) }}
+                    </div>
+                    <div class="resource-details">
+                      <div class="resource-name">{{ resource.name }}</div>
+                      <div class="resource-id">{{ resource.description || '暂无描述' }}</div>
+                    </div>
+                  </td>
+                  <td>
+                    <span :class="['type-badge', getResourceTypeClass(resource.type)]">
+                      {{ resource.type }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="distribute-info">
+                      <span class="distribute-count">{{ resource.distributedCount }}</span>
+                      <span class="distribute-label">位学生</span>
+                    </div>
+                  </td>
+                  <td class="created-time">{{ resource.createdAt }}</td>
+                  <td class="action-cell">
+                    <div class="action-buttons">
+                      <button @click="openDistributeResourceModal(resource)" class="action-button primary">
+                        📤 发放
+                      </button>
+                      <button @click="openEditResourceModal(resource)" class="action-button">
+                        ✏️ 修改
+                      </button>
+                      <button @click="confirmDeleteResource(resource)" class="action-button danger">
+                        🗑️ 删除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredLearningResources.length === 0">
+                  <td colspan="5" class="no-resources-message">
+                    <div class="empty-state">
+                      <div class="empty-icon">📚</div>
+                      <p>暂无学习资源</p>
+                      <button @click="openCreateResourceModal" class="create-first-button">
+                        创建第一个资源
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       
       <!-- 模型存档管理界面 -->
       <div v-else-if="activeTab === 'model-archives'" class="model-archives-interface">
@@ -1240,6 +1340,169 @@
       </div>
     </SimpleModal>
 
+    <!-- 创建学习资源 -->
+    <div v-if="isCreateResourceModalVisible" class="modal-overlay" @click.self="closeCreateResourceModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>创建上传资源</h3>
+          <button type="button" class="modal-close" @click="closeCreateResourceModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">资源名称</label>
+            <input v-model="newResource.name" class="form-input" placeholder="请输入资源名称" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">资源类型</label>
+            <select v-model="newResource.type" class="form-input">
+              <option value="文档">文档</option>
+              <option value="视频">视频</option>
+              <option value="练习题">练习题</option>
+              <option value="PPT">PPT</option>
+              <option value="其它">其它</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">上传文件（任意格式）</label>
+            <input
+              ref="createResourceFileInput"
+              type="file"
+              class="form-input"
+              @change="onCreateResourceFileChange"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="cancel-button" :disabled="isSavingResource" @click="closeCreateResourceModal">取消</button>
+          <button type="button" class="submit-button" :disabled="isSavingResource" @click="submitCreateResource">
+            {{ isSavingResource ? '上传中...' : '确定上传' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 修改学习资源 -->
+    <div v-if="isEditResourceModalVisible" class="modal-overlay" @click.self="closeEditResourceModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>修改资源</h3>
+          <button type="button" class="modal-close" @click="closeEditResourceModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">资源名称</label>
+            <input v-model="editResource.name" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">资源类型</label>
+            <select v-model="editResource.type" class="form-input">
+              <option value="文档">文档</option>
+              <option value="视频">视频</option>
+              <option value="练习题">练习题</option>
+              <option value="PPT">PPT</option>
+              <option value="其它">其它</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">更换文件（可选，不选则保留原文件）</label>
+            <input
+              ref="editResourceFileInput"
+              type="file"
+              class="form-input"
+              @change="onEditResourceFileChange"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="cancel-button" :disabled="isSavingResource" @click="closeEditResourceModal">取消</button>
+          <button type="button" class="submit-button" :disabled="isSavingResource" @click="submitEditResource">
+            {{ isSavingResource ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 发放学习资源 -->
+    <div v-if="isDistributeResourceModalVisible" class="modal-overlay" @click.self="closeDistributeResourceModal">
+      <div class="modal-content resource-distribute-modal" @click.stop>
+        <div class="modal-header">
+          <h3>发放资源：{{ distributeTargetResource?.name }}</h3>
+          <button type="button" class="modal-close" @click="closeDistributeResourceModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">选择班级</label>
+            <select v-model="distributeClass" class="form-input" @change="onDistributeClassChange">
+              <option value="">请选择班级</option>
+              <option v-for="c in studentClassOptions" :key="c" :value="c">{{ c }}</option>
+            </select>
+          </div>
+          <div v-if="distributeClass" class="form-group">
+            <div class="multi-select-wrapper" ref="distributeStudentDropdownRef">
+              <div
+                class="multi-select-display"
+                role="button"
+                tabindex="0"
+                @click="toggleDistributeStudentDropdown"
+              >
+                <span class="multi-select-display-text" v-if="distributeStudentIds.length === 0">请选择学生</span>
+                <span class="multi-select-display-text" v-else>已选 {{ distributeStudentIds.length }} 人</span>
+                <span class="multi-select-caret">{{ isDistributeStudentDropdownOpen ? '▲' : '▼' }}</span>
+              </div>
+
+              <div v-if="isDistributeStudentDropdownOpen" class="multi-select-panel" @click.stop>
+                <div class="multi-select-search">
+                  <input
+                    v-model="distributeStudentSearch"
+                    type="text"
+                    placeholder="搜索学生..."
+                    class="multi-select-search-input"
+                  />
+                </div>
+
+                <div class="select-all-row">
+                  <label class="select-all-label">
+                    <input
+                      type="checkbox"
+                      :checked="isAllClassStudentsSelected"
+                      @change="toggleSelectAllClassStudents"
+                    />
+                    全选
+                  </label>
+                  <span class="selected-count">已选 {{ distributeStudentIds.length }} 人</span>
+                </div>
+
+                <div class="student-checkbox-list">
+                  <label
+                    v-for="st in filteredClassStudentsForMultiSelect"
+                    :key="st.id"
+                    class="student-check-row"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="distributeStudentIds.includes(String(st.id))"
+                      @change="toggleDistributeStudent(st.id)"
+                    />
+                    <span>{{ st.name || st.username }}（{{ st.className || '未分班' }}）</span>
+                  </label>
+
+                  <div v-if="filteredClassStudentsForMultiSelect.length === 0" class="no-students-hint">
+                    暂无匹配学生
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="cancel-button" :disabled="isDistributing" @click="closeDistributeResourceModal">取消</button>
+          <button type="button" class="submit-button" :disabled="isDistributing || distributeStudentIds.length === 0" @click="submitDistributeResource">
+            {{ isDistributing ? '发放中...' : '确认发放' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 存储中弹窗 -->
     <div v-if="isStoring" class="storing-overlay">
       <div class="storing-modal">
@@ -1254,7 +1517,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import { getStudents } from '../api/students';
@@ -1263,6 +1526,13 @@ import { generateComment as apiGenerateComment, getStudentComments, createCommen
 import { uploadImage } from '../api/images';
 import { getAccounts, addAccount as apiAddAccount, deleteAccount as apiDeleteAccount, updateAccount as apiUpdateAccount, batchAddAccounts as apiBatchAddAccounts } from '../api/accounts';
 import { getArchives, createArchive, createArchiveWithFiles, uploadArchiveFiles, getArchiveDetail, deleteArchive } from '../api/archives';
+import {
+  getTeacherResources,
+  createResource as apiCreateResource,
+  updateResource as apiUpdateResource,
+  deleteResource as apiDeleteResource,
+  distributeResource as apiDistributeResource
+} from '../api/resources';
 import ImageUpload from '../components/ImageUpload.vue';
 import SimpleModal from '../components/SimpleModal.vue';
 
@@ -1289,6 +1559,128 @@ const activeTab = ref('comment-management');
 const selectedColumnId = ref('');
 const selectedClass = ref('');
 const searchKeyword = ref('');
+
+// —— 学习资源推荐 ——
+const allLearningResources = ref([]);
+const resourceFilterType = ref('');
+const resourceSearchQuery = ref('');
+const filteredLearningResources = computed(() => {
+  let list = [...allLearningResources.value];
+  if (resourceFilterType.value) {
+    list = list.filter((r) => r.type === resourceFilterType.value);
+  }
+  const q = resourceSearchQuery.value.trim().toLowerCase();
+  if (q) {
+    list = list.filter((r) => String(r.name || '').toLowerCase().includes(q));
+  }
+  return list;
+});
+
+// 获取资源类型图标
+const getResourceTypeIcon = (type) => {
+  const iconMap = {
+    '文档': '📄',
+    '视频': '🎬',
+    '练习题': '📝',
+    'PPT': '📊',
+    '其它': '📦'
+  };
+  return iconMap[type] || '📄';
+};
+
+// 获取资源类型CSS类
+const getResourceTypeClass = (type) => {
+  const classMap = {
+    '文档': 'document',
+    '视频': 'video',
+    '练习题': 'exercise',
+    'PPT': 'ppt',
+    '其它': 'other'
+  };
+  return classMap[type] || 'other';
+};
+const isCreateResourceModalVisible = ref(false);
+const isEditResourceModalVisible = ref(false);
+const isDistributeResourceModalVisible = ref(false);
+const isSavingResource = ref(false);
+const isDistributing = ref(false);
+const newResource = ref({ name: '', type: '文档', file: null });
+const createResourceFileInput = ref(null);
+const editingResource = ref(null);
+const editResource = ref({ name: '', type: '文档', file: null });
+const editResourceFileInput = ref(null);
+const distributeTargetResource = ref(null);
+const distributeClass = ref('');
+const distributeStudentIds = ref([]);
+const distributeStudentSearch = ref('');
+const isDistributeStudentDropdownOpen = ref(false);
+const distributeStudentDropdownRef = ref(null);
+const studentClassOptions = computed(() => {
+  const s = new Set();
+  for (const st of students.value) {
+    if (st.className) s.add(st.className);
+  }
+  return [...s].sort();
+});
+
+// 过滤出当前选择班级的学生
+const filteredClassStudents = computed(() => {
+  if (!distributeClass.value) return [];
+  return students.value.filter(st => st.className === distributeClass.value);
+});
+
+// 根据搜索关键字过滤学生
+const filteredClassStudentsForMultiSelect = computed(() => {
+  const q = distributeStudentSearch.value.trim().toLowerCase();
+  const list = filteredClassStudents.value;
+  if (!q) return list;
+  return list.filter((st) => {
+    const name = String(st.name || '').toLowerCase();
+    const username = String(st.username || '').toLowerCase();
+    const sid = String(st.id || '');
+    return name.includes(q) || username.includes(q) || sid.includes(q);
+  });
+});
+
+// 判断是否全选了班级学生
+const isAllClassStudentsSelected = computed(() => {
+  if (!distributeClass.value || filteredClassStudents.value.length === 0) return false;
+  return filteredClassStudents.value.every(st => distributeStudentIds.value.includes(String(st.id)));
+});
+
+// 班级选择变化时重置学生选择
+const onDistributeClassChange = () => {
+  distributeStudentIds.value = [];
+  distributeStudentSearch.value = '';
+  isDistributeStudentDropdownOpen.value = false;
+};
+
+// 切换全选/取消全选班级学生
+const toggleSelectAllClassStudents = () => {
+  if (isAllClassStudentsSelected.value) {
+    // 取消全选
+    distributeStudentIds.value = [];
+  } else {
+    // 全选
+    distributeStudentIds.value = filteredClassStudents.value.map(st => String(st.id));
+  }
+};
+
+// 打开/关闭“学生多选下拉框”
+const toggleDistributeStudentDropdown = () => {
+  if (!distributeClass.value) return;
+  isDistributeStudentDropdownOpen.value = !isDistributeStudentDropdownOpen.value;
+};
+
+// 点击弹窗外关闭“学生多选下拉框”
+const handleDistributeStudentDropdownClickOutside = (e) => {
+  if (!isDistributeStudentDropdownOpen.value) return;
+  const el = distributeStudentDropdownRef.value;
+  if (!el) return;
+  if (e?.target && !el.contains(e.target)) {
+    isDistributeStudentDropdownOpen.value = false;
+  }
+};
 
 // 专栏模态框
 const isColumnModalVisible = ref(false);
@@ -1921,9 +2313,225 @@ const closeAddAccountModal = () => {
   };
 };
 
+// —— 学习资源：数据与操作 ——
+const fetchLearningResources = async () => {
+  const tid = currentUser.value?.id;
+  if (!tid) {
+    allLearningResources.value = [];
+    return;
+  }
+  try {
+    const resp = await getTeacherResources(tid);
+    if (resp?.success) {
+      allLearningResources.value = Array.isArray(resp.data) ? resp.data : [];
+    } else {
+      allLearningResources.value = [];
+    }
+  } catch (e) {
+    console.error(e);
+    allLearningResources.value = [];
+  }
+};
+
+const openCreateResourceModal = () => {
+  newResource.value = { name: '', type: '文档', file: null };
+  if (createResourceFileInput.value) createResourceFileInput.value.value = '';
+  isCreateResourceModalVisible.value = true;
+};
+
+const closeCreateResourceModal = () => {
+  isCreateResourceModalVisible.value = false;
+  newResource.value = { name: '', type: '文档', file: null };
+  if (createResourceFileInput.value) createResourceFileInput.value.value = '';
+};
+
+const onCreateResourceFileChange = (e) => {
+  const f = e.target.files?.[0];
+  newResource.value.file = f || null;
+};
+
+const submitCreateResource = async () => {
+  if (!newResource.value.name?.trim()) {
+    alert('请输入资源名称');
+    return;
+  }
+  if (!newResource.value.file) {
+    alert('请选择要上传的文件');
+    return;
+  }
+  const tid = currentUser.value?.id;
+  if (!tid) {
+    alert('无法获取当前教师信息，请重新登录');
+    return;
+  }
+  isSavingResource.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('teacher_id', String(tid));
+    fd.append('name', newResource.value.name.trim());
+    fd.append('type', newResource.value.type);
+    fd.append('file', newResource.value.file);
+    const resp = await apiCreateResource(fd);
+    if (resp?.success) {
+      alert(resp.message || '创建成功');
+      closeCreateResourceModal();
+      await fetchLearningResources();
+    } else {
+      alert(resp?.message || '创建失败');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('创建失败');
+  } finally {
+    isSavingResource.value = false;
+  }
+};
+
+const openEditResourceModal = (resource) => {
+  editingResource.value = resource;
+  editResource.value = {
+    name: resource.name,
+    type: resource.type,
+    file: null
+  };
+  if (editResourceFileInput.value) editResourceFileInput.value.value = '';
+  isEditResourceModalVisible.value = true;
+};
+
+const closeEditResourceModal = () => {
+  isEditResourceModalVisible.value = false;
+  editingResource.value = null;
+  editResource.value = { name: '', type: '文档', file: null };
+  if (editResourceFileInput.value) editResourceFileInput.value.value = '';
+};
+
+const onEditResourceFileChange = (e) => {
+  const f = e.target.files?.[0];
+  editResource.value.file = f || null;
+};
+
+const submitEditResource = async () => {
+  if (!editingResource.value) return;
+  if (!editResource.value.name?.trim()) {
+    alert('请输入资源名称');
+    return;
+  }
+  const tid = currentUser.value?.id;
+  if (!tid) {
+    alert('无法获取当前教师信息');
+    return;
+  }
+  isSavingResource.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('teacher_id', String(tid));
+    fd.append('name', editResource.value.name.trim());
+    fd.append('type', editResource.value.type);
+    if (editResource.value.file) {
+      fd.append('file', editResource.value.file);
+    }
+    const resp = await apiUpdateResource(editingResource.value.id, fd);
+    if (resp?.success) {
+      alert(resp.message || '修改成功');
+      closeEditResourceModal();
+      await fetchLearningResources();
+    } else {
+      alert(resp?.message || '修改失败');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('修改失败');
+  } finally {
+    isSavingResource.value = false;
+  }
+};
+
+const confirmDeleteResource = async (resource) => {
+  if (!confirm(`确定删除资源「${resource.name}」吗？将同时删除文件与发放记录。`)) return;
+  const tid = currentUser.value?.id;
+  if (!tid) return;
+  try {
+    const resp = await apiDeleteResource(resource.id, tid);
+    if (resp?.success) {
+      alert(resp.message || '已删除');
+      await fetchLearningResources();
+    } else {
+      alert(resp?.message || '删除失败');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('删除失败');
+  }
+};
+
+const openDistributeResourceModal = (resource) => {
+  distributeTargetResource.value = resource;
+  distributeClass.value = '';
+  distributeStudentIds.value = [];
+  distributeStudentSearch.value = '';
+  isDistributeStudentDropdownOpen.value = false;
+  isDistributeResourceModalVisible.value = true;
+};
+
+const closeDistributeResourceModal = () => {
+  isDistributeResourceModalVisible.value = false;
+  distributeTargetResource.value = null;
+  distributeStudentIds.value = [];
+  distributeStudentSearch.value = '';
+  isDistributeStudentDropdownOpen.value = false;
+};
+
+const toggleDistributeStudent = (id) => {
+  const sid = String(id);
+  const idx = distributeStudentIds.value.indexOf(sid);
+  if (idx === -1) {
+    distributeStudentIds.value = [...distributeStudentIds.value, sid];
+  } else {
+    distributeStudentIds.value = distributeStudentIds.value.filter((x) => x !== sid);
+  }
+};
+
+const submitDistributeResource = async () => {
+  const res = distributeTargetResource.value;
+  if (!res) return;
+  const tid = currentUser.value?.id;
+  if (!tid) {
+    alert('无法获取当前教师信息');
+    return;
+  }
+  if (!distributeClass.value) {
+    alert('请选择班级');
+    return;
+  }
+  const ids = distributeStudentIds.value.map((x) => Number(x));
+  if (!ids.length) {
+    alert('请选择学生');
+    return;
+  }
+  isDistributing.value = true;
+  try {
+    const resp = await apiDistributeResource(res.id, tid, ids);
+    if (resp?.success) {
+      alert(resp.message || '发放成功');
+      closeDistributeResourceModal();
+      await fetchLearningResources();
+    } else {
+      alert(resp?.message || '发放失败');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('发放失败');
+  } finally {
+    isDistributing.value = false;
+  }
+};
+
 // 切换功能标签页
 const switchTab = (tabName) => {
   activeTab.value = tabName;
+  if (tabName === 'resource-recommendation') {
+    fetchLearningResources();
+  }
 };
 
 // 添加账号
@@ -2324,6 +2932,11 @@ onMounted(() => {
   loadColumns();
   loadAccounts();
   loadArchives();
+  document.addEventListener('click', handleDistributeStudentDropdownClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDistributeStudentDropdownClickOutside);
 });
 
 // 加载模型存档
@@ -3365,6 +3978,48 @@ const handleDeleteArchive = async () => {
   border-top: 1px solid #e9ecef;
 }
 
+.resource-distribute-modal {
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.distribute-mode-row .radio-row {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.distribute-mode-row .radio-row label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.student-checkbox-list {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafbfc;
+}
+
+.student-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.student-check-row:hover {
+  background: #eef1f5;
+}
+
 .cancel-button {
   padding: 8px 15px;
   border: 1px solid #ddd;
@@ -4097,5 +4752,386 @@ const handleDeleteArchive = async () => {
 .existing-model-section,
 .train-model-section {
   padding: 10px 0;
+}
+
+/* 学习资源管理页面样式 */
+.resources-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.resources-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.resources-table th {
+  background-color: #f8f9fa;
+  padding: 15px 20px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.resources-table td {
+  padding: 15px 20px;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.resource-row:hover {
+  background-color: #f8f9fa;
+}
+
+.resource-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resource-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.resource-icon.document {
+  background-color: #e3f2fd;
+}
+
+.resource-icon.video {
+  background-color: #fff3e0;
+}
+
+.resource-icon.exercise {
+  background-color: #e8f5e9;
+}
+
+.resource-icon.ppt {
+  background-color: #f3e5f5;
+}
+
+.resource-icon.other {
+  background-color: #f5f5f5;
+}
+
+.resource-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.resource-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 15px;
+}
+
+.resource-id {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.type-badge {
+  padding: 6px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.type-badge.document {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.type-badge.video {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.type-badge.exercise {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.type-badge.ppt {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.type-badge.other {
+  background-color: #f5f5f5;
+  color: #616161;
+}
+
+.distribute-info {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.distribute-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4a90e2;
+}
+
+.distribute-label {
+  font-size: 13px;
+  color: #999;
+}
+
+.created-time {
+  color: #666;
+  font-size: 13px;
+}
+
+.action-cell {
+  padding: 12px 20px !important;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-buttons .action-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-buttons .action-button {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.action-buttons .action-button:hover {
+  background-color: #e0e0e0;
+  transform: translateY(-1px);
+}
+
+.action-buttons .action-button.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-buttons .action-button.primary:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.action-buttons .action-button.danger {
+  background-color: #fff3f3;
+  color: #ff4757;
+}
+
+.action-buttons .action-button.danger:hover {
+  background-color: #ffe0e0;
+}
+
+.no-resources-message {
+  text-align: center;
+}
+
+.no-resources-message .empty-state {
+  padding: 60px 20px;
+}
+
+.no-resources-message .empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.no-resources-message p {
+  margin: 0 0 20px 0;
+  color: #999;
+  font-size: 15px;
+}
+
+.create-first-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.create-first-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.create-resource-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.create-resource-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* 发放资源模态框样式 */
+.resource-distribute-modal {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.multi-select-wrapper {
+  position: relative;
+}
+
+.multi-select-display {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.multi-select-display:hover {
+  border-color: #c7d2fe;
+}
+
+.multi-select-display-text {
+  font-size: 14px;
+  color: #333;
+}
+
+.multi-select-caret {
+  font-size: 14px;
+  color: #666;
+}
+
+.multi-select-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  z-index: 30;
+  padding: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.multi-select-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.no-students-hint {
+  padding: 10px 6px;
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+}
+
+.select-all-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 12px;
+}
+
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+  user-select: none;
+}
+
+.select-all-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.resource-distribute-modal .student-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.resource-distribute-modal .student-check-row:hover {
+  background-color: #f8f9fa;
+}
+
+.resource-distribute-modal .student-check-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.resource-distribute-modal .student-check-row span {
+  font-size: 14px;
+  color: #333;
 }
 </style>

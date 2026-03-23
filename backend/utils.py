@@ -982,9 +982,10 @@ def construct_summary_prompt(student_info, past_comments):
     """
     return prompt
 
-def save_uploaded_file(file, allowed_exts=None):
+def save_uploaded_file(file, allowed_exts=None, allow_any=False):
     """
     保存上传的文件并返回路径
+    :param allow_any: True 时不校验扩展名（用于学习资源等任意类型文件上传）
     """
     if not file:
         return None, None
@@ -993,14 +994,15 @@ def save_uploaded_file(file, allowed_exts=None):
     if not filename:
         return None, None
 
-    # 如果调用方显式指定允许扩展名，则按其校验；否则沿用 ALLOWED_EXTENSIONS
-    if allowed_exts is not None:
-        ext = os.path.splitext(filename)[1].lower().lstrip('.')
-        if ext not in set(e.lower() for e in allowed_exts):
-            return None, None
-    else:
-        if not allowed_file(filename):
-            return None, None
+    if not allow_any:
+        # 如果调用方显式指定允许扩展名，则按其校验；否则沿用 ALLOWED_EXTENSIONS
+        if allowed_exts is not None:
+            ext = os.path.splitext(filename)[1].lower().lstrip('.')
+            if ext not in set(e.lower() for e in allowed_exts):
+                return None, None
+        else:
+            if not allowed_file(filename):
+                return None, None
 
     if file:
         # 提取原始文件名和后缀名

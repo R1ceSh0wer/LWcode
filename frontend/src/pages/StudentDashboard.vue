@@ -481,10 +481,19 @@
               :alt="`试题图片 ${index + 1}`" 
               class="column-image"
               @error="handleImageError($event, image)"
+              @click="openImageModal(image)" <!-- 添加点击事件 -->
             >
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 图片放大模态框 -->
+  <div v-if="showImageModal" class="image-preview-overlay" @click.self="closeImageModal">
+    <div class="image-preview-modal" @click.stop>
+      <button @click="closeImageModal" class="image-preview-close" type="button">×</button>
+      <img :src="currentImageUrl" class="image-preview-img" alt="图片预览">
     </div>
   </div>
 </template>
@@ -548,6 +557,47 @@ const showDetailsModal = ref(false)
 const selectedComment = ref(null)
 const selectedCommentColumn = ref('')
 const selectedColumnImages = shallowRef([])
+
+// 图片放大模态框相关变量
+const showImageModal = ref(false)
+const currentImageUrl = ref('')
+
+// 显示图片放大模态框
+const openImageModal = (imageUrl) => {
+  currentImageUrl.value = imageUrl
+  showImageModal.value = true
+  // 初始化缩放和位置（保留变量以避免后续逻辑改动；当前弹窗为自适应展示）
+  imageScale.value = 1
+  imageTranslateX.value = 0
+  imageTranslateY.value = 0
+}
+
+// 关闭图片放大模态框
+const closeImageModal = () => {
+  showImageModal.value = false
+  currentImageUrl.value = ''
+  imageScale.value = 1
+  imageTranslateX.value = 0
+  imageTranslateY.value = 0
+}
+
+// 图片缩放和平移
+const imageScale = ref(1)
+const imageTranslateX = ref(0)
+const imageTranslateY = ref(0)
+
+const handleWheelZoom = (event) => {
+  const scaleAmount = 0.1
+  let newScale = imageScale.value
+  if (event.deltaY < 0) {
+    // 向上滚动，放大
+    newScale = Math.min(imageScale.value + scaleAmount, 5) // 最大放大5倍
+  } else {
+    // 向下滚动，缩小
+    newScale = Math.max(imageScale.value - scaleAmount, 0.2) // 最小缩小0.2倍
+  }
+  imageScale.value = newScale
+}
 
 // 智能问答相关变量
 const conversations = ref([])
@@ -2096,5 +2146,102 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px solid #e0e0e0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+/* 图片放大模态框样式 */
+.image-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+}
+
+.image-preview-modal {
+  position: relative;
+  max-width: min(1100px, 95vw);
+  max-height: 90vh;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: #333;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.image-preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.image-modal-content {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.enlarged-image {
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transform-origin: center center;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  transition: transform 0.1s ease-out;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.image-modal-close:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 </style>

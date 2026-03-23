@@ -47,5 +47,8 @@ def create_app(config_class=Config):
     
     from app.archives import bp as archives_bp
     app.register_blueprint(archives_bp)
+
+    from app.resources.routes import bp as resources_bp
+    app.register_blueprint(resources_bp)
     
     return app
