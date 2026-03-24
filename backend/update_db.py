@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import db, Config
 from app.comments.models import Comment
 from app.resources.models import LearningResource, StudentResource
+from app.columns.models import TeacherKnowledgeGraph
 
 # 创建 Flask 应用
 from flask import Flask
@@ -52,6 +53,27 @@ with app.app_context():
         print('添加 human_knowledge 字段成功')
     else:
         print('human_knowledge 字段已存在')
+
+    # 创建教师知识图谱表（如果不存在）
+    table_names = inspector.get_table_names()
+    if 'teacher_knowledge_graphs' not in table_names:
+        db.session.execute(text('''
+            CREATE TABLE teacher_knowledge_graphs (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                teacher_id INTEGER NOT NULL,
+                column_id INTEGER NOT NULL UNIQUE,
+                nodes_json TEXT NOT NULL,
+                edges_json TEXT NOT NULL,
+                partitions_json TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (teacher_id) REFERENCES users(id),
+                FOREIGN KEY (column_id) REFERENCES exam_columns(id)
+            )
+        '''))
+        print('创建 teacher_knowledge_graphs 表成功')
+    else:
+        print('teacher_knowledge_graphs 表已存在')
     db.session.commit() # Commit the changes
 
 print('数据库更新完成')

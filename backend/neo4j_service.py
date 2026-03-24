@@ -78,4 +78,12 @@ class Neo4jConnection:
 
 
 # 创建全局Neo4j连接实例
-neo4j_conn = Neo4jConnection()
+neo4j_conn = None
+
+try:
+    neo4j_conn = Neo4jConnection()
+    print(f'[Neo4j] 连接成功: {NEO4J_URI}')
+except Exception as e:
+    print(f'[Neo4j] 连接失败: {str(e)}')
+    print(f'[Neo4j] 请确保Neo4j数据库正在运行，地址: {NEO4J_URI}')
+    neo4j_conn = None

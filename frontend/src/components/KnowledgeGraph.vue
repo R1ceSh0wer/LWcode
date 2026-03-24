@@ -2,7 +2,7 @@
   <div class="knowledge-graph-container">
     <div class="main-content">
       <div class="left-panel">
-        <h2 class="panel-title">知识查询</h2>
+        <h2 class="panel-title">知识分区</h2>
         <div class="query-buttons">
           <button 
             v-for="button in queryButtons" 
@@ -37,12 +37,16 @@
             <span>{{ getGroupName(selectedNode.group) }}</span>
           </div>
           <div class="node-property">
+            <span class="property-label">权重:</span> 
+            <span>{{ selectedNode.weight || 1 }}</span>
+          </div>
+          <div class="node-property">
             <span class="property-label">描述:</span> 
             <span>{{ selectedNode.description || '暂无描述' }}</span>
           </div>
-          <div class="node-property">
-            <span class="property-label">年份:</span> 
-            <span>{{ selectedNode.year || '未知' }}</span>
+          <div class="node-property" v-if="selectedNode.partitionTags && selectedNode.partitionTags.length > 0">
+            <span class="property-label">分区:</span> 
+            <span>{{ selectedNode.partitionTags.join(', ') }}</span>
           </div>
         </div>
         
@@ -78,8 +82,8 @@ const activeQuery = ref('all')
 const selectedNode = ref(null)
 const isGraphReady = ref(false)
 
-// 查询按钮配置
-const queryButtons = [
+// 查询按钮配置（默认）
+const defaultQueryButtons = [
   { id: 'all', label: '显示全部知识图谱' },
   { id: 'programming', label: '编程语言相关' },
   { id: 'databases', label: '数据库技术' },
@@ -89,6 +93,13 @@ const queryButtons = [
   { id: 'influences', label: '技术影响关系' },
   { id: 'clear', label: '清空图谱' }
 ]
+const queryButtons = ref([...defaultQueryButtons])
+const isTeacherGraphMode = ref(false)
+const teacherGraph = ref({
+  nodes: [],
+  edges: [],
+  partitions: []
+})
 
 // 统计信息
 const statistics = reactive({
@@ -147,16 +158,102 @@ const hideNodeInfo = () => {
   selectedNode.value = null
 }
 
+// 规避后端重复数据导致 vis DataSet 报错
+const dedupeNodesAndEdges = (rawNodes = [], rawEdges = []) => {
+  const nodeMap = new Map()
+  for (const node of rawNodes) {
+    if (!node || node.id === undefined || node.id === null) continue
+    nodeMap.set(String(node.id), { ...node, id: String(node.id) })
+  }
+  const nodes = Array.from(nodeMap.values())
+  const nodeIds = new Set(nodes.map(n => n.id))
+
+  const edgeMap = new Map()
+  for (const edge of rawEdges) {
+    if (!edge || edge.from === undefined || edge.to === undefined) continue
+    const from = String(edge.from)
+    const to = String(edge.to)
+    if (!nodeIds.has(from) || !nodeIds.has(to)) continue
+    const edgeKey = edge.id
+      ? String(edge.id)
+      : `${from}->${to}::${String(edge.label || '')}`
+    edgeMap.set(edgeKey, {
+      ...edge,
+      id: edgeKey,
+      from,
+      to
+    })
+  }
+  return { nodes, edges: Array.from(edgeMap.values()) }
+}
+
 // 初始化图谱
 const initGraph = async () => {
   try {
-    // 从API获取完整的知识图谱数据
-    const response = await axios.get('/api/knowledge-graph')
-    const { nodes: apiNodes, edges: apiEdges } = response.data
+    let apiNodes = []
+    let apiEdges = []
+
+    // 优先读取教师构建图谱（用于学生端分区查询）
+    try {
+      const teacherResp = await axios.get('/api/columns/knowledge-graph/latest')
+      const teacherData = teacherResp?.data?.data
+      
+      if (teacherResp?.data?.success) {
+        isTeacherGraphMode.value = true
+        const availableTeacherNodes = (teacherData?.nodes || []).filter(n => !n.inBackpack)
+        teacherGraph.value = {
+          nodes: availableTeacherNodes.map(n => ({
+            ...n,
+            partitionTags: Array.isArray(n.partitionTags) ? n.partitionTags : []
+          })),
+          edges: teacherData?.edges || [],
+          partitions: teacherData?.partitions || []
+        }
+        
+        // 即使没有节点，也显示教师端创建的分区
+        queryButtons.value = [
+          { id: 'all', label: '显示全部知识图谱' },
+          ...teacherGraph.value.partitions.map(name => ({
+            id: `partition:${name}`,
+            label: name
+          })),
+          { id: 'clear', label: '清空图谱' }
+        ]
+
+        if (availableTeacherNodes.length > 0) {
+          apiNodes = teacherGraph.value.nodes.map(n => ({
+            id: n.id,
+            group: 'concept',
+            label: n.label,
+            title: n.label,
+            weight: n.weight || 1,
+            partitionTags: n.partitionTags || [],
+            description: `权重: ${n.weight || 1}`,
+            year: '',
+            color: '#667eea'
+          }))
+          apiEdges = teacherGraph.value.edges
+        }
+      }
+    } catch (e) {
+      // 教师图谱获取失败时自动回退旧逻辑
+      console.warn('读取教师图谱失败，回退默认图谱:', e)
+    }
+
+    // 回退到原有图谱
+    if (apiNodes.length === 0 && !isTeacherGraphMode.value) {
+      isTeacherGraphMode.value = false
+      queryButtons.value = [...defaultQueryButtons]
+      const response = await axios.get('/api/knowledge-graph')
+      apiNodes = response.data.nodes || []
+      apiEdges = response.data.edges || []
+    }
     
+    const deduped = dedupeNodesAndEdges(apiNodes, apiEdges)
+
     // 转换为DataSet格式
-    const nodes = new DataSet(apiNodes);
-    const edges = new DataSet(apiEdges);
+    const nodes = new DataSet(deduped.nodes);
+    const edges = new DataSet(deduped.edges);
 
     allNodes = nodes
     allEdges = edges
@@ -258,6 +355,44 @@ const executeQuery = async (queryId) => {
   activeQuery.value = queryId
   
   try {
+    if (isTeacherGraphMode.value) {
+      if (queryId === 'clear') {
+        clearGraph()
+        return
+      }
+
+      const baseNodes = teacherGraph.value.nodes
+      const baseEdges = teacherGraph.value.edges
+      let filteredNodes = baseNodes
+
+      if (queryId.startsWith('partition:')) {
+        const partitionName = queryId.slice('partition:'.length)
+        filteredNodes = baseNodes.filter(node =>
+          (node.partitionTags || []).includes(partitionName)
+        )
+      }
+
+      const nodeIdSet = new Set(filteredNodes.map(n => n.id))
+      const filteredEdges = baseEdges.filter(edge => nodeIdSet.has(edge.from) && nodeIdSet.has(edge.to))
+
+      allNodes.clear()
+      allEdges.clear()
+      allNodes.add(filteredNodes.map(n => ({
+        id: n.id,
+        group: 'concept',
+        label: n.label,
+        title: n.label,
+        weight: n.weight || 1,
+        partitionTags: n.partitionTags || [],
+        description: `权重: ${n.weight || 1}`,
+        year: '',
+        color: '#667eea'
+      })))
+      allEdges.add(filteredEdges)
+      updateStatistics()
+      return
+    }
+
     switch (queryId) {
       case 'all':
         await queryAll()
@@ -299,7 +434,19 @@ const queryAll = async () => {
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(apiNodes)
+  
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of apiNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
+  allNodes.add(uniqueNodes)
   allEdges.add(apiEdges)
   updateStatistics()
 }
@@ -312,7 +459,19 @@ const queryProgramming = async () => {
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(apiNodes)
+  
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of apiNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
+  allNodes.add(uniqueNodes)
   allEdges.add(apiEdges)
   updateStatistics()
 }
@@ -325,7 +484,19 @@ const queryDatabases = async () => {
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(apiNodes)
+  
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of apiNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
+  allNodes.add(uniqueNodes)
   allEdges.add(apiEdges)
   updateStatistics()
 }
@@ -343,8 +514,19 @@ const queryNetwork = async () => {
     node.label === '区块链'
   )
   
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of filteredNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
   // 获取相关节点ID
-  const networkNodeIds = new Set(filteredNodes.map(node => node.id))
+  const networkNodeIds = new Set(uniqueNodes.map(node => node.id))
   
   const filteredEdges = allApiEdges.filter(edge => 
     networkNodeIds.has(edge.from) || 
@@ -354,7 +536,7 @@ const queryNetwork = async () => {
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(filteredNodes)
+  allNodes.add(uniqueNodes)
   allEdges.add(filteredEdges)
   updateStatistics()
 }
@@ -367,7 +549,19 @@ const queryAI = async () => {
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(apiNodes)
+  
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of apiNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
+  allNodes.add(uniqueNodes)
   allEdges.add(apiEdges)
   updateStatistics()
 }
@@ -380,7 +574,19 @@ const queryDevelopers = async () => {
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(apiNodes)
+  
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of apiNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
+  allNodes.add(uniqueNodes)
   allEdges.add(apiEdges)
   updateStatistics()
 }
@@ -409,10 +615,21 @@ const queryInfluences = async () => {
     influenceNodeIds.has(node.id)
   )
   
+  // 确保节点ID唯一
+  const uniqueNodes = []
+  const nodeIds = new Set()
+  
+  for (const node of filteredNodes) {
+    if (!nodeIds.has(node.id)) {
+      nodeIds.add(node.id)
+      uniqueNodes.push(node)
+    }
+  }
+  
   // 先清空现有数据，然后添加新数据
   allNodes.clear()
   allEdges.clear()
-  allNodes.add(filteredNodes)
+  allNodes.add(uniqueNodes)
   allEdges.add(influenceEdges)
   updateStatistics()
 }

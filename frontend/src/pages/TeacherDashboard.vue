@@ -130,6 +130,12 @@
           >
             学习资源推荐
           </button>
+          <button
+            :class="['nav-button', { active: activeTab === 'knowledge-builder' }]"
+            @click="switchTab('knowledge-builder')"
+          >
+            知识图谱构建
+          </button>
           <button 
             :class="['nav-button', { active: activeTab === 'model-archives' }]"
             @click="switchTab('model-archives')"
@@ -552,6 +558,14 @@
           </div>
         </div>
       
+      <!-- 教师知识图谱构建界面 -->
+      <div v-else-if="activeTab === 'knowledge-builder'" class="knowledge-builder-interface">
+        <div class="page-header">
+          <h2>知识图谱构建</h2>
+        </div>
+        <TeacherKnowledgeGraphBuilder :columns="columns" />
+      </div>
+
       <!-- 模型存档管理界面 -->
       <div v-else-if="activeTab === 'model-archives'" class="model-archives-interface">
         <!-- 页面标题和操作区 -->
@@ -1535,6 +1549,7 @@ import {
 } from '../api/resources';
 import ImageUpload from '../components/ImageUpload.vue';
 import SimpleModal from '../components/SimpleModal.vue';
+import TeacherKnowledgeGraphBuilder from '../components/TeacherKnowledgeGraphBuilder.vue';
 
 const router = useRouter();
 

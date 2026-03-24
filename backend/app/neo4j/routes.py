@@ -6,6 +6,9 @@ from app.neo4j import bp
 @bp.route('/knowledge-graph', methods=['GET'])
 def get_knowledge_graph():
     """获取完整知识图谱（兼容前端一次性加载）"""
+    if not neo4j_conn:
+        return jsonify({'success': False, 'message': 'Neo4j数据库连接失败，请检查数据库是否运行'}), 500
+    
     try:
         nodes_query = "MATCH (n) RETURN n.node_id AS id, labels(n)[0] AS group, n"
         edges_query = "MATCH (s)-[r:RELATION]->(t) RETURN s.node_id AS from, t.node_id AS to, r"
@@ -43,6 +46,9 @@ def get_knowledge_graph():
 @bp.route('/knowledge-graph/nodes', methods=['GET'])
 def get_knowledge_graph_nodes():
     """获取知识图谱所有节点"""
+    if not neo4j_conn:
+        return jsonify({'success': False, 'message': 'Neo4j数据库连接失败，请检查数据库是否运行'}), 500
+    
     try:
         query = "MATCH (n) RETURN n.node_id AS id, labels(n)[0] AS group, n"
         result = neo4j_conn.query(query)
@@ -69,6 +75,9 @@ def get_knowledge_graph_nodes():
 @bp.route('/knowledge-graph/edges', methods=['GET'])
 def get_knowledge_graph_edges():
     """获取知识图谱所有边"""
+    if not neo4j_conn:
+        return jsonify({'success': False, 'message': 'Neo4j数据库连接失败，请检查数据库是否运行'}), 500
+    
     try:
         query = "MATCH (s)-[r:RELATION]->(t) RETURN s.node_id AS from, t.node_id AS to, r"
         result = neo4j_conn.query(query)
@@ -92,6 +101,9 @@ def get_knowledge_graph_edges():
 @bp.route('/knowledge-graph/nodes/<int:node_id>', methods=['GET'])
 def get_knowledge_graph_node(node_id):
     """获取指定ID的知识图谱节点"""
+    if not neo4j_conn:
+        return jsonify({'success': False, 'message': 'Neo4j数据库连接失败，请检查数据库是否运行'}), 500
+    
     try:
         query = "MATCH (n) WHERE n.node_id = $node_id RETURN n.node_id AS id, labels(n)[0] AS group, n"
         result = neo4j_conn.query(query, {'node_id': node_id})
@@ -119,6 +131,9 @@ def get_knowledge_graph_node(node_id):
 @bp.route('/knowledge-graph/query/<string:query_type>', methods=['GET'])
 def query_knowledge_graph(query_type):
     """根据查询类型获取过滤后的知识图谱数据"""
+    if not neo4j_conn:
+        return jsonify({'success': False, 'message': 'Neo4j数据库连接失败，请检查数据库是否运行'}), 500
+    
     try:
         queries = {
             'all': {
@@ -180,3 +195,6 @@ def query_knowledge_graph(query_type):
         return jsonify({'nodes': nodes, 'edges': edges})
     except Exception as e:
         return jsonify({'success': False, 'message': f'查询知识图谱失败：{str(e)}'}), 500
+
+
+

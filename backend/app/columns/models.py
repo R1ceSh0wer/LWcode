@@ -20,3 +20,17 @@ class ExamColumn(db.Model):
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     human_knowledge = db.Column(db.String(200)) # 人工标注知识点文件路径
     created_at = db.Column(db.DateTime, default=datetime.now)
+
+
+class TeacherKnowledgeGraph(db.Model):
+    """教师端知识图谱构建数据"""
+    __tablename__ = 'teacher_knowledge_graphs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    column_id = db.Column(db.Integer, db.ForeignKey('exam_columns.id'), nullable=False, unique=True)
+    nodes_json = db.Column(db.Text, nullable=False, default='[]')
+    edges_json = db.Column(db.Text, nullable=False, default='[]')
+    partitions_json = db.Column(db.Text, nullable=False, default='[]')
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)

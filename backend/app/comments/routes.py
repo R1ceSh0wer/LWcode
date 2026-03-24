@@ -643,7 +643,7 @@ def generate_comment():
             knowledge_codes_dict = {}  # 用于NeuralCDM：键为 img_{题号}
             actual_scores = []
             
-            # Prepare model-predicted knowledge: { "1": [knowledge_id,...], ... }
+            # 直接使用专栏创建时已结合的知识点
             base_question_knowledge = json.loads(column.question_knowledge) if column.question_knowledge else {}
             if not isinstance(base_question_knowledge, dict):
                 base_question_knowledge = {}
@@ -680,25 +680,8 @@ def generate_comment():
                 exercise_ids.append(exer_id)
 
                 q_key = str(exer_id)
-                base_codes = base_question_knowledge.get(q_key) or []
-                if not base_codes:
-                    base_codes = [exer_id]
-
-                human_codes = []
-                if human_knowledge_data:
-                    human_codes = human_knowledge_data.get(q_key) or []
-
-                # 按要求：人工标注“追加”到模型预测之后，并保留序列顺序（去重但不打乱）
-                merged_codes = []
-                seen = set()
-                for c in list(base_codes) + list(human_codes):
-                    try:
-                        c_int = int(c)
-                    except Exception:
-                        continue
-                    if c_int not in seen:
-                        merged_codes.append(c_int)
-                        seen.add(c_int)
+                # 直接使用专栏中已结合的知识点
+                merged_codes = base_question_knowledge.get(q_key) or [exer_id]
 
                 knowledge_codes.append(merged_codes)
                 knowledge_codes_dict[f'img_{exer_id}'] = merged_codes
