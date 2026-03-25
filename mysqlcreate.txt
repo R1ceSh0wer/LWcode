@@ -1,0 +1,188 @@
+create table users
+(
+    id         int auto_increment comment '用户ID'
+        primary key,
+    username   varchar(50)                        not null comment '登录用户名',
+    password   varchar(100)                       not null comment '登录密码',
+    role       varchar(10)                        not null comment '角色：teacher 或 student',
+    created_at datetime default CURRENT_TIMESTAMP null comment '注册时间',
+    constraint idx_username
+        unique (username)
+)
+    comment '系统用户表';
+
+create table conversations
+(
+    id                   int auto_increment
+        primary key,
+    dify_conversation_id varchar(100) null,
+    student_id           int          null,
+    title                varchar(100) null,
+    status               varchar(20)  null,
+    created_at           datetime     null,
+    updated_at           datetime     null,
+    constraint conversations_ibfk_1
+        foreign key (student_id) references users (id)
+);
+
+create index student_id
+    on conversations (student_id);
+
+create table learning_resources
+(
+    id         int auto_increment
+        primary key,
+    teacher_id int          not null,
+    name       varchar(200) not null,
+    type       varchar(50)  not null,
+    file_path  varchar(255) not null,
+    created_at datetime     null,
+    updated_at datetime     null,
+    constraint learning_resources_ibfk_1
+        foreign key (teacher_id) references users (id)
+);
+
+create index teacher_id
+    on learning_resources (teacher_id);
+
+create table messages
+(
+    id              int auto_increment
+        primary key,
+    conversation_id int          null,
+    role            varchar(10)  null,
+    content         text         null,
+    dify_message_id varchar(100) null,
+    created_at      datetime     null,
+    name            varchar(100) null,
+    constraint messages_ibfk_1
+        foreign key (conversation_id) references conversations (id)
+);
+
+create index conversation_id
+    on messages (conversation_id);
+
+create table model_archives
+(
+    id                     int auto_increment
+        primary key,
+    name                   varchar(100) not null,
+    word_emb_path          varchar(200) null,
+    diagnosis_model_path   varchar(200) null,
+    knowledge_mapping_path varchar(200) null,
+    teacher_id             int          not null,
+    status                 varchar(20)  null,
+    training_log           text         null,
+    created_at             datetime     null,
+    constraint name
+        unique (name),
+    constraint model_archives_ibfk_1
+        foreign key (teacher_id) references users (id)
+);
+
+create table exam_columns
+(
+    id                   int auto_increment
+        primary key,
+    teacher_id           int                                not null comment '创建该专栏的教师ID',
+    title                varchar(100)                       not null comment '专栏标题 (如:2023期末数学)',
+    question_image_path1 varchar(255)                       null comment '试题截图的存储路径',
+    question_text        text                               null comment 'OCR识别出的试题文字内容',
+    created_at           datetime default CURRENT_TIMESTAMP null,
+    question_image_path2 varchar(255)                       null,
+    question_image_path3 varchar(255)                       null,
+    question_image_path4 varchar(255)                       null,
+    question_image_path5 varchar(255)                       null,
+    question_image_path6 varchar(255)                       null,
+    question_knowledge   text                               null,
+    archive_id           int                                null,
+    human_knowledge      varchar(200)                       null,
+    constraint fk_column_teacher
+        foreign key (teacher_id) references users (id),
+    constraint fk_exam_columns_archive
+        foreign key (archive_id) references model_archives (id)
+)
+    comment '试题专栏表';
+
+create table comments
+(
+    id                  int auto_increment
+        primary key,
+    column_id           int                                   not null comment '关联试题专栏ID',
+    student_id          int                                   not null comment '关联学生ID',
+    answer_image_path1  varchar(255)                          null comment '学生答卷截图路径',
+    answer_result       text                                  null comment 'OCR识别出的学生作答情况',
+    content             text                                  null comment 'AI生成的教师评语',
+    style               varchar(50) default 'default'         null comment '使用的评语风格 (如:鼓励型, 严厉型)',
+    feedback            text                                  null comment '学生对评语的反馈内容',
+    feedback_time       datetime                              null comment '反馈提交时间',
+    is_regenerated      tinyint(1)  default 0                 null comment '是否根据反馈重新生成过 (0:否, 1:是)',
+    created_at          datetime    default CURRENT_TIMESTAMP null,
+    answer_image_path2  varchar(255)                          null,
+    answer_image_path3  varchar(255)                          null,
+    answer_image_path4  varchar(255)                          null,
+    answer_image_path5  varchar(255)                          null,
+    answer_image_path6  varchar(255)                          null,
+    addition            text                                  null,
+    cdm_predictions     text                                  null,
+    student_proficiency float                                 null,
+    constraint fk_comment_column
+        foreign key (column_id) references exam_columns (id)
+            on delete cascade,
+    constraint fk_comment_student
+        foreign key (student_id) references users (id)
+            on delete cascade
+)
+    comment '具体评语记录表';
+
+create index teacher_id
+    on model_archives (teacher_id);
+
+create table student_info
+(
+    id             int auto_increment
+        primary key,
+    user_id        int         not null comment '关联users表的id',
+    name           varchar(50) null comment '真实姓名',
+    grade          varchar(20) null comment '年级 (如:三年级)',
+    student_number varchar(20) null comment '学号',
+    features       text        null comment '学生特点备注 (可选，供AI参考，如:粗心、基础好)',
+    constraint fk_student_user
+        foreign key (user_id) references users (id)
+            on delete cascade
+)
+    comment '学生详细档案表';
+
+create table student_resources
+(
+    id             int auto_increment
+        primary key,
+    student_id     int        not null,
+    resource_id    int        not null,
+    distributed_at datetime   null,
+    read_status    tinyint(1) null,
+    constraint student_resources_ibfk_1
+        foreign key (student_id) references users (id),
+    constraint student_resources_ibfk_2
+        foreign key (resource_id) references learning_resources (id)
+);
+
+create index resource_id
+    on student_resources (resource_id);
+
+create index student_id
+    on student_resources (student_id);
+
+create table summary_comments
+(
+    id         int auto_increment
+        primary key,
+    student_id int                                not null comment '关联学生ID',
+    content    text                               null comment 'AI生成的阶段性总结内容',
+    created_at datetime default CURRENT_TIMESTAMP null,
+    constraint fk_summary_student
+        foreign key (student_id) references users (id)
+            on delete cascade
+)
+    comment '阶段性总结评语表';
+
