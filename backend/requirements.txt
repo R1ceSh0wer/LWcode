@@ -18,6 +18,8 @@ pytesseract==0.3.8
 neo4j-driver==4.4.3
 
 # 其他依赖
+Flask-Login==0.6.2
+cryptography==42.0.5
 numpy==1.21.2
 Pillow==8.3.1
 requests==2.26.0

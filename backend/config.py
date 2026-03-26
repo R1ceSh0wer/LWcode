@@ -30,27 +30,26 @@ NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'weijinqi20040811')
 
 # Flask配置类
 class Config:
-    # Flask核心配置
+
     SECRET_KEY = os.getenv('SECRET_KEY', 'weijinqi20040811')  # 用于会话加密的密钥
-    DEBUG = True  # 开发环境下启用调试模式
+    DEBUG = True
     
-    # 数据库配置
+
     SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}?charset=utf8mb4'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False  # 禁用SQLAlchemy的修改追踪
-    SQLALCHEMY_ECHO = False  # 禁用SQLAlchemy的日志输出
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
     
-    # 上传文件配置
+
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'uploads'))  # 文件上传目录
-    MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 最大上传文件大小：500MB
-    ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'png,jpg,jpeg,gif').split(','))  # 允许上传的文件类型
+    MAX_CONTENT_LENGTH = 500 * 1024 * 1024
+    ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'png,jpg,jpeg,gif').split(','))
     
     # API配置
-    API_PREFIX = '/api'  # API路由前缀
-    
-    # 百度AI配置
-    APP_ID = os.getenv('APP_ID', 'your-app-id')  # 百度AI应用ID
-    API_KEY = os.getenv('API_KEY', 'your-api-key')  # 百度AI应用密钥
-    SECRET_KEY_BAIDU = os.getenv('SECRET_KEY', 'your-secret-key')  # 百度AI应用密钥
+    API_PREFIX = '/api'
+
+    APP_ID = os.getenv('APP_ID', 'your-app-id')
+    API_KEY = os.getenv('API_KEY', 'your-api-key')
+    SECRET_KEY_BAIDU = os.getenv('SECRET_KEY', 'your-secret-key')
     
     # Tesseract OCR配置
     TESSERACT_CMD = os.getenv('TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe')  # Tesseract可执行文件路径

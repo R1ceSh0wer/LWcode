@@ -1,17 +1,10 @@
 <template>
   <div class="builder-container">
     <div class="toolbar">
-      <label>选择专栏：</label>
-      <select v-model="selectedColumnId" @change="loadGraphData">
-        <option value="">请选择专栏</option>
-        <option v-for="col in columns" :key="col.id" :value="String(col.id)">
-          {{ col.name }}
-        </option>
-      </select>
-      <button class="save-btn" :disabled="!selectedColumnId || saving" @click="saveGraph">
+      <button class="save-btn" :disabled="saving" @click="saveGraph">
         {{ saving ? '保存中...' : '保存图谱' }}
       </button>
-      <button class="connect-btn" :disabled="!selectedColumnId" @click="startConnectMode">
+      <button class="connect-btn" @click="startConnectMode">
         {{ isConnectMode ? '取消连线' : '连接两个节点' }}
       </button>
     </div>
@@ -30,13 +23,14 @@
           全部
         </button>
         <button
-          v-for="part in partitions"
-          :key="part"
-          :class="['partition-chip', { active: activePartitionFilter === part }]"
-          @click="activePartitionFilter = part; renderGraph()"
-        >
-          {{ part }}
-        </button>
+            v-for="part in partitions"
+            :key="part"
+            :class="['partition-chip', { active: activePartitionFilter === part }]"
+            @click="activePartitionFilter = part; renderGraph()"
+          >
+            {{ part }}
+            <span class="delete-btn" @click.stop="deletePartition(part)">×</span>
+          </button>
       </div>
       <div class="create-partition">
         <input v-model.trim="newPartitionName" placeholder="输入分区名称" />
@@ -79,7 +73,8 @@
               </option>
             </select>
           </div>
-          <button @click="putNodeInBackpack(selectedNode.id)">放回背包</button>
+          <button @click="putNodeInBackpack(selectedNode.id)" class="backpack-btn">放回背包</button>
+          <button @click="deleteNode(selectedNode.id)" class="delete-btn">删除知识点</button>
         </div>
       </div>
     </div>
@@ -90,6 +85,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { Network, DataSet } from 'vis'
 import 'vis/dist/vis.min.css'
+import axios from 'axios'
 import { getColumnKnowledgeGraph, saveColumnKnowledgeGraph } from '../api/knowledgeBuilder'
 
 const props = defineProps({
@@ -131,27 +127,39 @@ const backpackNodes = computed(() => nodes.value.filter(n => n.inBackpack))
 
 const loadGraphData = async () => {
   selectedNode.value = null
-  if (!selectedColumnId.value) {
+  try {
+    // 直接从全局知识图谱加载数据
+    const resp = await axios.get('/api/columns/knowledge-graph/latest')
+    if (resp?.data?.success) {
+      const globalNodes = (resp.data.data?.nodes || []).map(n => ({
+        ...n,
+        partitionTags: Array.isArray(n.partitionTags) ? n.partitionTags : []
+      }))
+      // 去重节点，确保ID唯一
+      const uniqueNodes = []
+      const nodeIds = new Set()
+      for (const node of globalNodes) {
+        if (node.id && !nodeIds.has(node.id)) {
+          nodeIds.add(node.id)
+          uniqueNodes.push(node)
+        }
+      }
+      nodes.value = uniqueNodes
+      edges.value = resp.data.data?.edges || []
+      partitions.value = resp.data.data?.partitions || []
+    }
+    activePartitionFilter.value = ''
+    await nextTick()
+    renderGraph()
+  } catch (error) {
+    console.error('加载知识图谱失败:', error)
     nodes.value = []
     edges.value = []
     partitions.value = []
+    activePartitionFilter.value = ''
+    await nextTick()
     renderGraph()
-    return
   }
-  const resp = await getColumnKnowledgeGraph(selectedColumnId.value)
-  if (!resp?.success) {
-    alert(resp?.message || '加载知识图谱失败')
-    return
-  }
-  nodes.value = (resp.data?.nodes || []).map(n => ({
-    ...n,
-    partitionTags: Array.isArray(n.partitionTags) ? n.partitionTags : []
-  }))
-  edges.value = resp.data?.edges || []
-  partitions.value = resp.data?.partitions || []
-  activePartitionFilter.value = ''
-  await nextTick()
-  renderGraph()
 }
 
 const renderGraph = () => {
@@ -262,6 +270,20 @@ const createPartition = () => {
   newPartitionName.value = ''
 }
 
+const deletePartition = (partitionName) => {
+  if (confirm(`确定要删除分区 "${partitionName}" 吗？`)) {
+    // 从分区列表中删除
+    partitions.value = partitions.value.filter(p => p !== partitionName)
+    // 从所有节点中移除该分区标签
+    nodes.value.forEach(node => {
+      if (node.partitionTags) {
+        node.partitionTags = node.partitionTags.filter(tag => tag !== partitionName)
+      }
+    })
+    renderGraph()
+  }
+}
+
 const putNodeIntoGraph = (nodeId) => {
   const node = nodes.value.find(n => n.id === nodeId)
   if (!node) return
@@ -274,6 +296,20 @@ const putNodeInBackpack = (nodeId) => {
   if (!node) return
   node.inBackpack = true
   renderGraph()
+}
+
+const deleteNode = (nodeId) => {
+  if (confirm('确定要删除该知识点吗？')) {
+    // 从节点列表中删除
+    nodes.value = nodes.value.filter(n => n.id !== nodeId)
+    // 从边列表中删除与该节点相关的边
+    edges.value = edges.value.filter(e => e.from !== nodeId && e.to !== nodeId)
+    // 清除选中状态
+    if (selectedNode.value && selectedNode.value.id === nodeId) {
+      selectedNode.value = null
+    }
+    renderGraph()
+  }
 }
 
 const syncSelectedNodeWeight = () => {
@@ -302,9 +338,16 @@ const startConnectMode = () => {
 }
 
 const saveGraph = async () => {
-  if (!selectedColumnId.value) return
   saving.value = true
   try {
+    // 选择第一个专栏作为默认保存目标
+    const targetColumnId = selectedColumnId.value || (props.columns && props.columns.length > 0 ? props.columns[0].id : null)
+    if (!targetColumnId) {
+      alert('请先创建一个专栏')
+      return
+    }
+    
+    // 保存所有节点和边，包括背包中的节点
     const payload = {
       nodes: nodes.value.map(n => ({
         ...n,
@@ -314,7 +357,7 @@ const saveGraph = async () => {
       edges: edges.value,
       partitions: partitions.value
     }
-    const resp = await saveColumnKnowledgeGraph(selectedColumnId.value, payload)
+    const resp = await saveColumnKnowledgeGraph(targetColumnId, payload)
     if (!resp?.success) {
       alert(resp?.message || '保存失败')
       return
@@ -328,7 +371,7 @@ const saveGraph = async () => {
 watch(
   () => props.columns,
   (cols) => {
-    if (!selectedColumnId.value && cols.length > 0) {
+    if (cols.length > 0) {
       selectedColumnId.value = String(cols[0].id)
       loadGraphData()
     }
@@ -373,6 +416,68 @@ watch(
 .form-row { margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
 .form-row input { width: 90px; padding: 4px 8px; border: 1px solid #d5dbe6; border-radius: 6px; }
 .empty { color: #8b93a7; font-size: 13px; }
+
+/* 删除按钮样式 */
+.delete-btn {
+  background: none;
+  border: none;
+  color: #f56c6c;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.3s ease;
+}
+
+.delete-btn:hover {
+  color: #f78989;
+}
+
+/* 分区芯片样式 */
+.partition-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+/* 节点编辑区域按钮样式 */
+.section button.delete-btn {
+  background-color: #f56c6c;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  margin-right: 16px;
+  margin-bottom: 8px;
+}
+
+.section button.backpack-btn {
+  background-color: #67c23a;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  margin-right: 16px;
+  margin-bottom: 8px;
+}
+
+.section button.backpack-btn:hover {
+  background-color: #85ce61;
+}
+
 @media (max-width: 1200px) {
   .content { grid-template-columns: 1fr; }
 }

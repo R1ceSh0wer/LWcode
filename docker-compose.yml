@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: . # 指向项目根目录
+      dockerfile: backend/Dockerfile # 指定后端 Dockerfile 路径
+    container_name: intelligent-edu-backend
+    ports:
+      - "5000:5000" # 将容器的 5000 端口映射到主机的 5000 端口 (可选，如果通过前端 Nginx 访问则不需要直接暴露)
+    volumes:
+      - ./uploads:/app/backend/uploads # 挂载文件上传目录，保持数据持久化
+      - ./backend/archives:/app/backend/archives # 挂载模型存档目录，保持数据持久化
+      # 如果有其他需要持久化的后端数据或配置文件，也在这里挂载
+    environment:
+      # 后端所需的环境变量，例如数据库连接字符串、密钥等
+      # 建议使用 .env 文件来管理这些变量
+      DATABASE_URI: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      FLASK_ENV: production
+      SECRET_KEY: ${FLASK_SECRET_KEY} # 从 .env 文件读取
+      # 其他后端配置，例如上传文件的路径等
+      UPLOAD_FOLDER: /app/backend/uploads
+    depends_on:
+      - db # 确保后端在数据库启动后才启动
+    restart: always # 容器退出后总是重启
+
+  # 前端服务
+  frontend:
+    build:
+      context: . # 项目根目录
+      dockerfile: frontend/Dockerfile # 指定前端 Dockerfile 路径
+    container_name: intelligent-edu-frontend
+    ports:
+      - "80:80" # 将容器的 80 端口映射到主机的 80 端口
+      # 如果需要 HTTPS，通常会在服务器外部配置 Nginx/Caddy 或负载均衡器
+    depends_on:
+      - backend # 确保前端在后端启动后才启动
+    restart: always
+
+  # 数据库服务
+  db:
+    image: mysql:8.0 # 使用官方 MySQL 镜像
+    container_name: intelligent-edu-mysql
+    # ports:
+    #   - "3306:3306" # 只有当您需要从主机直接访问数据库时才需要暴露
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # 从 .env 文件读取
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql # 挂载数据卷，保持数据库数据持久化
+    restart: always
+    healthcheck: # 健康检查，确保数据库真正可用
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$"MYSQL_USER"", "-p$$"MYSQL_PASSWORD""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Dify 服务 (可选，如果您部署 Dify)
+  # dify:
+  #   image: langgenius/dify:latest # 根据您实际使用的 Dify 镜像和版本
+  #   container_name: dify-service
+  #   ports:
+  #     - "8080:80" # 将 Dify 的 HTTP 端口映射到主机
+  #   environment:
+  #     DB_TYPE: postgres # Dify 通常使用 PostgreSQL
+  #     # 其他 Dify 相关的环境变量，例如数据库连接、API 密钥等
+  #     # 如果 Dify 有自己的数据库，它可能需要连接到 dify_db 服务
+  #     POSTGRES_HOST: dify_db
+  #     # ...
+  #   depends_on:
+  #     # 如果 Dify 需要数据库，确保其数据库先启动
+  #     - dify_db
+  #   restart: always
+
+  # Dify 数据库服务 (可选，如果 Dify 需要自己的数据库)
+  # dify_db:
+  #   image: postgres:13 # Dify 推荐的 PostgreSQL 版本
+  #   container_name: dify-postgres
+  #   environment:
+  #     POSTGRES_DB: dify_db
+  #     POSTGRES_USER: dify_user
+  #     POSTGRES_PASSWORD: dify_password
+  #   volumes:
+  #     - dify_db_data:/var/lib/postgresql/data
+  #   restart: always
+
+volumes:
+  db_data: # 定义一个数据卷用于您的 MySQL 数据库持久化
+  # dify_db_data: # 如果 Dify 有自己的数据库，定义一个数据卷

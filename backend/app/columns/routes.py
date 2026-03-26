@@ -89,90 +89,172 @@ def _build_initial_graph_from_column(column: ExamColumn):
 
 
 def _save_column_graph_to_neo4j(column_id: int, teacher_id: int, nodes: list, edges: list):
-    """覆盖保存专栏图谱到 Neo4j（每个专栏隔离）"""
-    # 先清理该专栏旧图
-    neo4j_conn.query(
-        "MATCH (n:ColumnKnowledgeNode {column_id: $column_id}) DETACH DELETE n",
-        {'column_id': int(column_id)}
-    )
-
-    # 保存节点
+    """保存知识图谱到 Neo4j（不再按专栏隔离）"""
+    # 检查Neo4j连接是否可用
+    if not neo4j_conn:
+        return
+    
+    # 不再清理数据，而是更新或创建节点
     if nodes:
-        neo4j_conn.query(
-            """
-            UNWIND $nodes AS row
-            CREATE (n:ColumnKnowledgeNode {
-              node_id: row.id,
-              code: row.code,
-              label: row.label,
-              weight: row.weight,
-              x: row.x,
-              y: row.y,
-              in_backpack: row.inBackpack,
-              partition_tags: row.partitionTags,
-              column_id: $column_id,
-              teacher_id: $teacher_id
-            })
-            """,
-            {
-                'nodes': nodes,
-                'column_id': int(column_id),
-                'teacher_id': int(teacher_id)
-            }
-        )
-
+        for node in nodes:
+            # 检查节点是否已存在
+            existing_node = neo4j_conn.query(
+                "MATCH (n:ColumnKnowledgeNode {node_id: $node_id}) RETURN n",
+                {'node_id': node['id']}
+            )
+            
+            if existing_node:
+                # 获取现有节点的权重
+                existing_weight = existing_node[0]['n'].get('weight', 1)
+                new_weight = node.get('weight', 1)
+                
+                # 合并权重：取最大值
+                merged_weight = max(existing_weight, new_weight)
+                
+                # 更新现有节点
+                neo4j_conn.query(
+                    """
+                    MATCH (n:ColumnKnowledgeNode {node_id: $node_id})
+                    SET n.code = $code,
+                        n.label = $label,
+                        n.weight = $weight,
+                        n.x = $x,
+                        n.y = $y,
+                        n.in_backpack = $inBackpack,
+                        n.partition_tags = $partitionTags,
+                        n.teacher_id = $teacher_id
+                    """,
+                    {
+                        'node_id': node['id'],
+                        'code': node.get('code'),
+                        'label': node.get('label'),
+                        'weight': merged_weight,
+                        'x': node.get('x'),
+                        'y': node.get('y'),
+                        'inBackpack': node.get('inBackpack', False),
+                        'partitionTags': node.get('partitionTags', []),
+                        'teacher_id': teacher_id
+                    }
+                )
+            else:
+                # 创建新节点
+                neo4j_conn.query(
+                    """
+                    CREATE (n:ColumnKnowledgeNode {
+                      node_id: $node_id,
+                      code: $code,
+                      label: $label,
+                      weight: $weight,
+                      x: $x,
+                      y: $y,
+                      in_backpack: $inBackpack,
+                      partition_tags: $partitionTags,
+                      teacher_id: $teacher_id
+                    })
+                    """,
+                    {
+                        'node_id': node['id'],
+                        'code': node.get('code'),
+                        'label': node.get('label'),
+                        'weight': node.get('weight', 1),
+                        'x': node.get('x'),
+                        'y': node.get('y'),
+                        'inBackpack': node.get('inBackpack', False),
+                        'partitionTags': node.get('partitionTags', []),
+                        'teacher_id': teacher_id
+                    }
+                )
+    
     # 保存边
     if edges:
-        neo4j_conn.query(
+        for edge in edges:
+            # 检查边是否已存在
+            existing_edge = neo4j_conn.query(
+                """
+                MATCH (s:ColumnKnowledgeNode {node_id: $from_id})-[r:COLUMN_RELATION]->(t:ColumnKnowledgeNode {node_id: $to_id})
+                RETURN r
+                """,
+                {'from_id': edge['from'], 'to_id': edge['to']}
+            )
+            
+            if not existing_edge:
+                # 创建新边
+                neo4j_conn.query(
+                    """
+                    MATCH (s:ColumnKnowledgeNode {node_id: $from_id})
+                    MATCH (t:ColumnKnowledgeNode {node_id: $to_id})
+                    CREATE (s)-[r:COLUMN_RELATION {
+                      edge_id: $edge_id,
+                      label: $label,
+                      teacher_id: $teacher_id
+                    }]->(t)
+                    """,
+                    {
+                        'from_id': edge['from'],
+                        'to_id': edge['to'],
+                        'edge_id': edge['id'],
+                        'label': edge.get('label', '相关'),
+                        'teacher_id': teacher_id
+                    }
+                )
+
+
+def _load_column_graph_from_neo4j(column_id: int = None):
+    """从Neo4j加载知识图谱数据（不再按专栏隔离）"""
+    # 检查Neo4j连接是否可用
+    if not neo4j_conn:
+        print(f'[DEBUG] Neo4j连接不可用')
+        return [], [], []
+    
+    # 加载所有知识图谱数据
+    try:
+        print(f'[DEBUG] 开始加载知识图谱数据')
+        nodes_res = neo4j_conn.query(
             """
-            UNWIND $edges AS row
-            MATCH (s:ColumnKnowledgeNode {column_id: $column_id, node_id: row.from})
-            MATCH (t:ColumnKnowledgeNode {column_id: $column_id, node_id: row.to})
-            CREATE (s)-[r:COLUMN_RELATION {
-              edge_id: row.id,
-              label: row.label,
-              column_id: $column_id,
-              teacher_id: $teacher_id
-            }]->(t)
-            """,
-            {
-                'edges': edges,
-                'column_id': int(column_id),
-                'teacher_id': int(teacher_id)
-            }
+            MATCH (n:ColumnKnowledgeNode)
+            RETURN n
+            ORDER BY n.code ASC
+            """
         )
-
-
-def _load_column_graph_from_neo4j(column_id: int):
-    nodes_res = neo4j_conn.query(
-        """
-        MATCH (n:ColumnKnowledgeNode {column_id: $column_id})
-        RETURN n
-        ORDER BY n.code ASC
-        """,
-        {'column_id': int(column_id)}
-    )
-    edges_res = neo4j_conn.query(
-        """
-        MATCH (s:ColumnKnowledgeNode {column_id: $column_id})-[r:COLUMN_RELATION {column_id: $column_id}]->(t:ColumnKnowledgeNode {column_id: $column_id})
-        RETURN s.node_id AS from_id, t.node_id AS to_id, r
-        """,
-        {'column_id': int(column_id)}
-    )
+        edges_res = neo4j_conn.query(
+            """
+            MATCH (s:ColumnKnowledgeNode)-[r:COLUMN_RELATION]->(t:ColumnKnowledgeNode)
+            RETURN s.node_id AS from_id, t.node_id AS to_id, r
+            """
+        )
+        # 加载分区数据
+        print(f'[DEBUG] 开始加载分区数据')
+        partitions_res = neo4j_conn.query(
+            """
+            MATCH (p:Partition)
+            RETURN p
+            ORDER BY p.name ASC
+            """
+        )
+        print(f'[DEBUG] 分区数据加载完成，共 {len(partitions_res)} 个分区')
+    except Exception as e:
+        print(f'[Neo4j] 加载知识图谱数据失败: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return [], [], []
 
     nodes = []
+    node_ids = set()  # 用于去重
     for rec in nodes_res:
         n = rec['n']
-        nodes.append({
-            'id': n.get('node_id'),
-            'code': n.get('code'),
-            'label': n.get('label'),
-            'weight': int(n.get('weight') or 1),
-            'x': n.get('x'),
-            'y': n.get('y'),
-            'inBackpack': bool(n.get('in_backpack')),
-            'partitionTags': n.get('partition_tags') or []
-        })
+        node_id = n.get('node_id')
+        if node_id and node_id not in node_ids:
+            node_ids.add(node_id)
+            nodes.append({
+                'id': node_id,
+                'code': n.get('code'),
+                'label': n.get('label'),
+                'weight': int(n.get('weight') or 1),
+                'x': n.get('x'),
+                'y': n.get('y'),
+                'inBackpack': bool(n.get('in_backpack')),
+                'partitionTags': n.get('partition_tags') or []
+            })
 
     edges = []
     for rec in edges_res:
@@ -184,24 +266,94 @@ def _load_column_graph_from_neo4j(column_id: int):
             'label': r.get('label') or '相关'
         })
 
+    # 从分区数据和节点的partitionTags中提取分区
     partition_set = set()
+    # 从分区数据中提取
+    for rec in partitions_res:
+        p = rec['p']
+        partition_name = p.get('name')
+        if partition_name:
+            partition_set.add(partition_name)
+            print(f'[DEBUG] 从分区数据中提取: {partition_name}')
+    # 从节点的partitionTags中提取
     for n in nodes:
         for tag in (n.get('partitionTags') or []):
             if tag:
                 partition_set.add(tag)
+                print(f'[DEBUG] 从节点中提取分区: {tag}')
     partitions = sorted(list(partition_set))
+    print(f'[DEBUG] 最终分区列表: {partitions}')
     return nodes, edges, partitions
 
 
-def _ensure_teacher_graph(column: ExamColumn):
-    """确保专栏存在教师图谱数据（Neo4j）；若不存在则自动初始化"""
-    nodes, edges, partitions = _load_column_graph_from_neo4j(column.id)
-    if nodes:
-        return {'nodes': nodes, 'edges': edges, 'partitions': partitions}
-
-    init_nodes, init_edges, _ = _build_initial_graph_from_column(column)
-    _save_column_graph_to_neo4j(column.id, column.teacher_id, init_nodes, init_edges)
-    return {'nodes': init_nodes, 'edges': init_edges, 'partitions': []}
+def _ensure_teacher_graph(column: ExamColumn = None):
+    """确保存在教师图谱数据（Neo4j）；若不存在则自动初始化"""
+    column_id = column.id if column else None
+    nodes, edges, partitions = _load_column_graph_from_neo4j(column_id)
+    
+    # 如果有专栏，总是将其知识点合并到现有图谱中
+    if column:
+        # 从当前专栏构建初始图谱
+        init_nodes, init_edges, _ = _build_initial_graph_from_column(column)
+        
+        # 合并节点权重
+        if init_nodes:
+            # 加载现有节点
+            existing_nodes = {n['id']: n for n in nodes}
+            merged_nodes = []
+            
+            # 处理现有节点
+            for node_id, node in existing_nodes.items():
+                # 查找对应的初始节点
+                init_node = next((n for n in init_nodes if n['id'] == node_id), None)
+                if init_node:
+                    # 合并权重：取最大值
+                    node['weight'] = max(node['weight'], init_node['weight'])
+                merged_nodes.append(node)
+            
+            # 添加新节点
+            for init_node in init_nodes:
+                if init_node['id'] not in existing_nodes:
+                    merged_nodes.append(init_node)
+            
+            # 保存合并后的节点
+            _save_column_graph_to_neo4j(column.id, column.teacher_id, merged_nodes, edges)
+            return {'nodes': merged_nodes, 'edges': edges, 'partitions': partitions}
+    
+    # 如果没有数据且没有专栏，返回空数据
+    if not nodes:
+        # 从所有专栏构建初始图谱
+        all_nodes = []
+        all_edges = []
+        all_columns = ExamColumn.query.all()
+        
+        for col in all_columns:
+            init_nodes, init_edges, _ = _build_initial_graph_from_column(col)
+            all_nodes.extend(init_nodes)
+            all_edges.extend(init_edges)
+        
+        # 去重节点
+        unique_nodes = []
+        node_ids = set()
+        for node in all_nodes:
+            if node['id'] and node['id'] not in node_ids:
+                node_ids.add(node['id'])
+                unique_nodes.append(node)
+        
+        # 保存合并后的节点
+        if unique_nodes and all_columns:
+            # 使用第一个专栏的教师ID
+            teacher_id = all_columns[0].teacher_id
+            _save_column_graph_to_neo4j(all_columns[0].id, teacher_id, unique_nodes, all_edges)
+            # 即使没有节点，也应该加载分区数据
+            _, _, partitions = _load_column_graph_from_neo4j()
+            return {'nodes': unique_nodes, 'edges': all_edges, 'partitions': partitions}
+        
+        # 如果没有数据且没有专栏，返回空数据
+        return {'nodes': [], 'edges': [], 'partitions': []}
+    
+    # 如果有数据，直接返回
+    return {'nodes': nodes, 'edges': edges, 'partitions': partitions}
 
 
 @bp.route('/columns', methods=['GET'])
@@ -518,23 +670,47 @@ def save_column_knowledge_graph(id: int):
         edges = data.get('edges', [])
         partitions = data.get('partitions', [])
 
+        print(f'[DEBUG] 接收到的分区数据: {partitions}')
+
         if not isinstance(nodes, list) or not isinstance(edges, list) or not isinstance(partitions, list):
             return fail('图谱数据格式错误', 400)
 
-        # 分区最终以节点 partitionTags 为准；若节点未包含分区，则保留为仅前端展示信息
-        partition_set = set([p for p in partitions if isinstance(p, str) and p.strip()])
-        for n in nodes:
-            tags = n.get('partitionTags') if isinstance(n, dict) else []
-            if isinstance(tags, list):
-                for t in tags:
-                    if isinstance(t, str) and t.strip():
-                        partition_set.add(t)
-        _ = sorted(list(partition_set))
+        # 保存分区数据到 Neo4j
+        if partitions and neo4j_conn:
+            try:
+                print(f'[DEBUG] 开始保存分区数据到 Neo4j')
+                # 清除旧的分区数据
+                neo4j_conn.query(
+                    """
+                    MATCH (p:Partition)
+                    DETACH DELETE p
+                    """
+                )
+                print(f'[DEBUG] 旧的分区数据已清除')
+                
+                # 保存新的分区数据
+                for partition in partitions:
+                    if isinstance(partition, str) and partition.strip():
+                        print(f'[DEBUG] 保存分区: {partition.strip()}')
+                        neo4j_conn.query(
+                            """
+                            CREATE (p:Partition {name: $name})
+                            """,
+                            {'name': partition.strip()}
+                        )
+                print(f'[DEBUG] 分区数据保存完成')
+            except Exception as e:
+                print(f'[Neo4j] 保存分区数据失败: {str(e)}')
+                import traceback
+                traceback.print_exc()
 
         _save_column_graph_to_neo4j(column.id, column.teacher_id, nodes, edges)
         return ok(message='知识图谱保存成功')
     except Exception as e:
         db.session.rollback()
+        print(f'[ERROR] 保存知识图谱失败: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return fail(f'保存专栏知识图谱失败：{str(e)}', 500)
 
 
@@ -594,6 +770,24 @@ def delete_column(id: int):
         if not column:
             return fail('专栏不存在', 404)
         
+        # 提取专栏的知识点，用于后续减少权重
+        column_knowledge = {}
+        if column.question_knowledge:
+            try:
+                import json
+                qk_data = json.loads(column.question_knowledge)
+                if isinstance(qk_data, dict):
+                    for _, codes in qk_data.items():
+                        if isinstance(codes, list):
+                            for code in codes:
+                                try:
+                                    code_int = int(code)
+                                    column_knowledge[code_int] = column_knowledge.get(code_int, 0) + 1
+                                except Exception:
+                                    continue
+            except Exception:
+                pass
+        
         image_paths = [
             column.question_image_path1,
             column.question_image_path2,
@@ -638,6 +832,53 @@ def delete_column(id: int):
         
         db.session.delete(column)
         db.session.commit()
+        
+        # 减少知识图谱中对应知识点的权重
+        if column_knowledge and neo4j_conn:
+            try:
+                # 加载所有知识图谱数据
+                nodes_res = neo4j_conn.query(
+                    """
+                    MATCH (n:ColumnKnowledgeNode)
+                    RETURN n
+                    """
+                )
+                
+                # 处理每个节点
+                for rec in nodes_res:
+                    n = rec['n']
+                    node_id = n.get('node_id')
+                    code = n.get('code')
+                    
+                    # 检查该节点是否在当前专栏的知识点中
+                    if code and code in column_knowledge:
+                        # 获取当前权重
+                        current_weight = n.get('weight', 1)
+                        # 计算新权重
+                        new_weight = max(0, current_weight - column_knowledge[code])
+                        
+                        if new_weight > 0:
+                            # 更新权重
+                            neo4j_conn.query(
+                                """
+                                MATCH (n:ColumnKnowledgeNode {node_id: $node_id})
+                                SET n.weight = $weight
+                                """,
+                                {'node_id': node_id, 'weight': new_weight}
+                            )
+                        else:
+                            # 权重为0，删除节点
+                            neo4j_conn.query(
+                                """
+                                MATCH (n:ColumnKnowledgeNode {node_id: $node_id})
+                                DETACH DELETE n
+                                """,
+                                {'node_id': node_id}
+                            )
+                
+                print(f'[DELETE] 已更新知识图谱中知识点的权重')
+            except Exception as e:
+                print(f'[DELETE] 更新知识图谱失败: {str(e)}')
         
         return ok(None, message='专栏已删除')
     except Exception as e:

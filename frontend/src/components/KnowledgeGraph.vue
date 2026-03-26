@@ -221,19 +221,20 @@ const initGraph = async () => {
         ]
 
         if (availableTeacherNodes.length > 0) {
-          apiNodes = teacherGraph.value.nodes.map(n => ({
-            id: n.id,
-            group: 'concept',
-            label: n.label,
-            title: n.label,
-            weight: n.weight || 1,
-            partitionTags: n.partitionTags || [],
-            description: `权重: ${n.weight || 1}`,
-            year: '',
-            color: '#667eea'
-          }))
-          apiEdges = teacherGraph.value.edges
-        }
+                  apiNodes = teacherGraph.value.nodes.map(n => ({
+                    id: n.id,
+                    group: 'concept',
+                    label: n.label,
+                    title: n.label,
+                    weight: n.weight || 1,
+                    partitionTags: n.partitionTags || [],
+                    description: `权重: ${n.weight || 1}`,
+                    year: '',
+                    color: '#667eea',
+                    size: Math.max(16, Number(n.weight || 1) * 3) // 根据权重调整节点大小
+                  }))
+                  apiEdges = teacherGraph.value.edges
+                }
       }
     } catch (e) {
       // 教师图谱获取失败时自动回退旧逻辑
@@ -386,7 +387,8 @@ const executeQuery = async (queryId) => {
         partitionTags: n.partitionTags || [],
         description: `权重: ${n.weight || 1}`,
         year: '',
-        color: '#667eea'
+        color: '#667eea',
+        size: Math.max(16, Number(n.weight || 1) * 3) // 根据权重调整节点大小
       })))
       allEdges.add(filteredEdges)
       updateStatistics()
