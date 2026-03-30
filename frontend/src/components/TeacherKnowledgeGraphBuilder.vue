@@ -145,7 +145,16 @@ const loadGraphData = async () => {
         }
       }
       nodes.value = uniqueNodes
-      edges.value = resp.data.data?.edges || []
+      // 去重边，确保ID唯一
+      const uniqueEdges = []
+      const edgeIds = new Set()
+      for (const edge of (resp.data.data?.edges || [])) {
+        if (edge.id && !edgeIds.has(edge.id)) {
+          edgeIds.add(edge.id)
+          uniqueEdges.push(edge)
+        }
+      }
+      edges.value = uniqueEdges
       partitions.value = resp.data.data?.partitions || []
     }
     activePartitionFilter.value = ''
