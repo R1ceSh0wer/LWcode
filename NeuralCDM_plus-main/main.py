@@ -10,14 +10,13 @@ import torch.nn.functional as F
 import numpy as np
 import json
 import pickle
-from sklearn.metrics import roc_auc_score, accuracy_score
 
 
 gpu_n = 0    # the device to be run on
 device = torch.device(('cuda:'+str(gpu_n)) if torch.cuda.is_available() else 'cpu')
 # information about the dataset
 exer_n = 3790         # the total number of exercises in the dataset (题库)
-knowledge_n = 196     # the total number of knowledge concepts in the dataset
+knowledge_n = 197     # the total number of knowledge concepts in the dataset
 student_n = 190       # the total number of students in the dataset
 # hyper parameter
 sequence_len = 600    # maximum number of tokens in the text of an exercises
@@ -64,7 +63,7 @@ class Net(nn.Module):
         input_x = self.drop_1(F.sigmoid(self.prednet_full1(input_x)))
         input_x = self.drop_2(F.sigmoid(self.prednet_full2(input_x)))
         output_1 = F.sigmoid(self.prednet_full3(input_x))
-        output_0 = torch.ones(output_1.size()).to(device) - output_1
+        output_0 = torch.ones_like(output_1) - output_1
         output = torch.cat((output_0, output_1), 1)
 
         return output, e_k_prob
@@ -110,27 +109,61 @@ class DataLoader(object):
         input_x1s, input_x2s, knowledge_labels, knowledge_pairs, knowledge_masks, ys = [], [], [], [], [], []
         for count in range(self.batch_size):
             log = self.data[self.ptr + count]
+            
+            # 调试：打印当前处理的日志
+            print(f"\n处理第 {count+1} 个样本:")
+            print(f"user_id: {log['user_id']}, exer_id: {log['exer_id']}")
+            print(f"原始knowledge_code: {log['knowledge_code']}")
+            
+            # 构建knowledge_label
             knowledge_label = [0.] * self.knowledge_dim
             for knowledge_code in log['knowledge_code']:
-                knowledge_label[knowledge_code - 1] = 1.0
+                print(f"处理knowledge_code: {knowledge_code}")
+                if 1 <= knowledge_code <= self.knowledge_dim:
+                    knowledge_label[knowledge_code - 1] = 1.0
+                    print(f"  有效，索引: {knowledge_code - 1}")
+                else:
+                    print(f"  无效，超出范围: 1-{self.knowledge_dim}")
+            
             y = log['score']
             input_x1s.append(log['user_id'] - 1)
             input_x2s.append(log['exer_id'] - 1)
             knowledge_labels.append(knowledge_label)
+            
             # 处理知识点对不存在的情况
             kn_pairs = self.exer_id2pairs.get(log['exer_id'])
             if kn_pairs:
                 kn_tags, kn_topks = kn_pairs
+                print(f"从exer_id2pairs获取的kn_tags: {kn_tags}")
+                print(f"从exer_id2pairs获取的kn_topks: {kn_topks}")
             else:
                 # 如果知识点对不存在，使用该题目的知识点作为替代
                 kn_tags = log.get('knowledge_code', [])
                 kn_topks = []
+                print(f"使用题目知识点作为替代: {kn_tags}")
+            
             knowledge_pairs.append((kn_tags, kn_topks))
+            
+            # 构建knowledge_masks
             mask = [0.] * self.knowledge_dim
+            print(f"构建mask，长度: {len(mask)}")
+            
             for kn in kn_tags:
-                mask[kn-1] = 1.0
+                print(f"处理kn_tags中的 {kn}")
+                if 1 <= kn <= self.knowledge_dim:
+                    mask[kn-1] = 1.0
+                    print(f"  有效，索引: {kn-1}")
+                else:
+                    print(f"  无效，超出范围: 1-{self.knowledge_dim}")
+            
             for kn in kn_topks:
-                mask[kn-1] = 1.0
+                print(f"处理kn_topks中的 {kn}")
+                if 1 <= kn <= self.knowledge_dim:
+                    mask[kn-1] = 1.0
+                    print(f"  有效，索引: {kn-1}")
+                else:
+                    print(f"  无效，超出范围: 1-{self.knowledge_dim}")
+            
             knowledge_masks.append(mask)
             ys.append(y)
 
@@ -234,7 +267,7 @@ def load_snapshot(model, filename):
     f.close()
 
 
-def train(epoch_n=40):
+def train(epoch_n=1):
     data_loader = DataLoader()
     net = Net().to(device)
     normal_mean, normal_C = 0, 2
@@ -262,13 +295,109 @@ def train(epoch_n=40):
 
             loss_1 = loss2_function(torch.log(out_put), labels)
             loss_2 = 0
+            print(f"\n处理batch {batch_count}:")
+            print(f"knowledge_pairs长度: {len(knowledge_pairs)}")
+            print(f"exer_knowledge_prob形状: {exer_knowledge_prob.shape}")
+            
             for pair_i in range(len(knowledge_pairs)):
+                print(f"\n处理第 {pair_i+1} 个知识点对:")
                 kn_tags, kn_topks = knowledge_pairs[pair_i]
+                print(f"原始kn_tags: {kn_tags}")
+                print(f"原始kn_topks: {kn_topks}")
+                
+                # 添加边界检查，确保知识点索引在有效范围内
+                kn_tags = [k for k in kn_tags if 1 <= k <= knowledge_n]
+                kn_topks = [k for k in kn_topks if 1 <= k <= knowledge_n]
+                print(f"过滤后kn_tags: {kn_tags}")
+                print(f"过滤后kn_topks: {kn_topks}")
+                
+                if not kn_tags or not kn_topks:
+                    print(f"跳过无效的知识点对")
+                    continue
+                    
                 kn_tags, kn_topks = np.array(kn_tags) - 1, np.array(kn_topks) - 1
+                print(f"转换后kn_tags索引: {kn_tags}")
+                print(f"转换后kn_topks索引: {kn_topks}")
+                
+                # 检查索引范围
+                if len(kn_tags) > 0:
+                    max_tag = max(kn_tags)
+                    min_tag = min(kn_tags)
+                    print(f"kn_tags索引范围: {min_tag} - {max_tag}")
+                    if max_tag >= knowledge_n or min_tag < 0:
+                        print(f"警告：kn_tags索引超出范围！")
+                
+                if len(kn_topks) > 0:
+                    max_topk = max(kn_topks)
+                    min_topk = min(kn_topks)
+                    print(f"kn_topks索引范围: {min_topk} - {max_topk}")
+                    if max_topk >= knowledge_n or min_topk < 0:
+                        print(f"警告：kn_topks索引超出范围！")
+                
                 kn_tag_n = len(kn_tags)
-                kn_tag_tensor = exer_knowledge_prob[pair_i][kn_tags].view(-1, 1)
-                kn_prob_tensor = exer_knowledge_prob[pair_i][kn_topks].repeat(kn_tag_n, 1)
-                loss_2 = loss_2 - (torch.log(torch.sigmoid((kn_tag_tensor - kn_prob_tensor) * 0.1))).sum()
+                print(f"kn_tag_n: {kn_tag_n}")
+                print(f"访问exer_knowledge_prob[{pair_i}]，形状: {exer_knowledge_prob[pair_i].shape}")
+                
+                try:
+                    # 检查exer_knowledge_prob[pair_i]的维度
+                    prob_shape = exer_knowledge_prob[pair_i].shape
+                    print(f"exer_knowledge_prob[{pair_i}]形状: {prob_shape}")
+                    
+                    # 确保kn_tags和kn_topks中的索引在有效范围内
+                    if len(prob_shape) > 0:
+                        max_index = prob_shape[0] - 1
+                        print(f"最大有效索引: {max_index}")
+                        print(f"knowledge_n: {knowledge_n}")
+                        print(f"prob_shape[0]: {prob_shape[0]}")
+                        
+                        # 检查索引是否超出范围
+                        if kn_tags.size > 0:
+                            max_kn_tag = kn_tags.max()
+                            min_kn_tag = kn_tags.min()
+                            print(f"kn_tags最大值: {max_kn_tag}, 最小值: {min_kn_tag}")
+                            if max_kn_tag > max_index:
+                                print(f"错误：kn_tags中的索引 {max_kn_tag} 超出范围！")
+                            if min_kn_tag < 0:
+                                print(f"错误：kn_tags中的索引 {min_kn_tag} 超出范围！")
+                        
+                        if kn_topks.size > 0:
+                            max_kn_topk = kn_topks.max()
+                            min_kn_topk = kn_topks.min()
+                            print(f"kn_topks最大值: {max_kn_topk}, 最小值: {min_kn_topk}")
+                            if max_kn_topk > max_index:
+                                print(f"错误：kn_topks中的索引 {max_kn_topk} 超出范围！")
+                            if min_kn_topk < 0:
+                                print(f"错误：kn_topks中的索引 {min_kn_topk} 超出范围！")
+                        
+                        # 过滤超出范围的索引
+                        valid_kn_tags = [idx for idx in kn_tags if 0 <= idx <= max_index]
+                        valid_kn_topks = [idx for idx in kn_topks if 0 <= idx <= max_index]
+                        
+                        print(f"过滤后kn_tags: {valid_kn_tags}")
+                        print(f"过滤后kn_topks: {valid_kn_topks}")
+                        
+                        if not valid_kn_tags or not valid_kn_topks:
+                            print(f"跳过无效的索引")
+                            continue
+                        
+                        kn_tag_tensor = exer_knowledge_prob[pair_i][valid_kn_tags].view(-1, 1)
+                        print(f"kn_tag_tensor形状: {kn_tag_tensor.shape}")
+                        
+                        kn_prob_tensor = exer_knowledge_prob[pair_i][valid_kn_topks].repeat(len(valid_kn_tags), 1)
+                        print(f"kn_prob_tensor形状: {kn_prob_tensor.shape}")
+                        
+                        loss_2 = loss_2 - (torch.log(torch.sigmoid((kn_tag_tensor - kn_prob_tensor) * 0.1))).sum()
+                        print(f"loss_2更新后: {loss_2.item()}")
+                    else:
+                        print(f"跳过空的exer_knowledge_prob[{pair_i}]")
+                except Exception as e:
+                    print(f"错误：{e}")
+                    print(f"pair_i: {pair_i}")
+                    print(f"kn_tags: {kn_tags}")
+                    print(f"kn_topks: {kn_topks}")
+                    print(f"exer_knowledge_prob形状: {exer_knowledge_prob.shape}")
+                    print(f"exer_knowledge_prob[{pair_i}]形状: {exer_knowledge_prob[pair_i].shape}")
+                    raise
             for kn_prob in exer_knowledge_prob:
                 a = kn_prob - means
                 loss_2 = loss_2 + 0.5 * (a * a / C).sum()
@@ -313,11 +442,28 @@ def validate(model):
     pred_all = np.array(pred_all)
     label_all = np.array(label_all)
     # compute accuracy of model
-    accuracy = accuracy_score(label_all, pred_all > 0.5)
+    accuracy = np.mean(label_all == (pred_all > 0.5))
     # compute RMSE of model
     rmse = np.sqrt(np.mean((label_all - pred_all) ** 2))
     # compute AUC of model
-    auc = roc_auc_score(label_all, pred_all)
+    # 简单的AUC计算实现
+    sorted_indices = np.argsort(pred_all)[::-1]
+    sorted_labels = label_all[sorted_indices]
+    tp = 0
+    fp = 0
+    tpr = []
+    fpr = []
+    for l in sorted_labels:
+        if l == 1:
+            tp += 1
+        else:
+            fp += 1
+        tpr.append(tp / np.sum(label_all))
+        fpr.append(fp / (len(label_all) - np.sum(label_all)))
+    # 计算梯形面积
+    auc = 0
+    for i in range(1, len(tpr)):
+        auc += (fpr[i] - fpr[i-1]) * (tpr[i] + tpr[i-1]) / 2
     print('accuracy= %f, rmse= %f, auc= %f' % (accuracy, rmse, auc))
     with open('result/model_val.txt', 'a', encoding='utf8') as f:
         f.write('accuracy= %f, rmse= %f, auc= %f\n' % (accuracy, rmse, auc))
@@ -352,11 +498,28 @@ def test(epoch_n=30):
         pred_all = np.array(pred_all)
         label_all = np.array(label_all)
         # compute accuracy of model
-        accuracy = accuracy_score(label_all, pred_all > 0.5)
+        accuracy = np.mean(label_all == (pred_all > 0.5))
         # compute RMSE of model
         rmse = np.sqrt(np.mean((label_all - pred_all) ** 2))
         # compute AUC of model
-        auc = roc_auc_score(label_all, pred_all)
+        # 简单的AUC计算实现
+        sorted_indices = np.argsort(pred_all)[::-1]
+        sorted_labels = label_all[sorted_indices]
+        tp = 0
+        fp = 0
+        tpr = []
+        fpr = []
+        for l in sorted_labels:
+            if l == 1:
+                tp += 1
+            else:
+                fp += 1
+            tpr.append(tp / np.sum(label_all))
+            fpr.append(fp / (len(label_all) - np.sum(label_all)))
+        # 计算梯形面积
+        auc = 0
+        for i in range(1, len(tpr)):
+            auc += (fpr[i] - fpr[i-1]) * (tpr[i] + tpr[i-1]) / 2
         print('accuracy= %f, rmse= %f, auc= %f' % (accuracy, rmse, auc))
         with open('result/model_test.txt', 'a', encoding='utf8') as f:
             f.write('epoch= %d, accuracy= %f, rmse= %f, auc= %f\n' % (epoch, accuracy, rmse, auc))

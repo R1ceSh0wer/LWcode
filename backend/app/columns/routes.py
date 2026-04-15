@@ -10,6 +10,7 @@ from utils import allowed_file, ocr_process, batch_ocr_process, save_uploaded_fi
 import os
 import json
 import re
+import neuralcdm_predict
 from . import bp
 
 
@@ -291,6 +292,36 @@ def _ensure_teacher_graph(column: ExamColumn = None):
     column_id = column.id if column else None
     nodes, edges, partitions = _load_column_graph_from_neo4j(column_id)
     
+    # 获取知识映射
+    mapping = {}
+    
+    # 首先从所有存档中获取知识映射
+    all_archives = ModelArchive.query.all()
+    for archive in all_archives:
+        if archive.knowledge_mapping_path:
+            col_mapping = _parse_knowledge_mapping_file(archive.knowledge_mapping_path)
+            mapping.update(col_mapping)
+    
+    # 如果没有从存档中获取到映射，尝试从默认位置获取
+    if not mapping:
+        # 尝试从 backend/archives/initial_archive_20260310_180011/ 目录获取
+        default_mapping_path = 'archives/initial_archive_20260310_180011/knowledge_mapping.txt'
+        default_mapping = _parse_knowledge_mapping_file(default_mapping_path)
+        mapping.update(default_mapping)
+    
+    # 最后，尝试从 backend/models/ 目录获取
+    if not mapping:
+        models_mapping_path = 'models/knowledge_mapping.txt'
+        models_mapping = _parse_knowledge_mapping_file(models_mapping_path)
+        mapping.update(models_mapping)
+    
+    # 更新节点标签
+    updated_nodes = []
+    for node in nodes:
+        if 'code' in node and node['code'] in mapping:
+            node['label'] = mapping[node['code']]
+        updated_nodes.append(node)
+    
     # 如果有专栏，总是将其知识点合并到现有图谱中
     if column:
         # 从当前专栏构建初始图谱
@@ -299,7 +330,7 @@ def _ensure_teacher_graph(column: ExamColumn = None):
         # 合并节点权重
         if init_nodes:
             # 加载现有节点
-            existing_nodes = {n['id']: n for n in nodes}
+            existing_nodes = {n['id']: n for n in updated_nodes}
             merged_nodes = []
             
             # 处理现有节点
@@ -309,16 +340,33 @@ def _ensure_teacher_graph(column: ExamColumn = None):
                 if init_node:
                     # 合并权重：取最大值
                     node['weight'] = max(node['weight'], init_node['weight'])
+                    # 确保标签是最新的
+                    if 'code' in node and node['code'] in mapping:
+                        node['label'] = mapping[node['code']]
                 merged_nodes.append(node)
             
             # 添加新节点
             for init_node in init_nodes:
                 if init_node['id'] not in existing_nodes:
+                    # 确保新节点使用最新的标签
+                    if 'code' in init_node and init_node['code'] in mapping:
+                        init_node['label'] = mapping[init_node['code']]
                     merged_nodes.append(init_node)
             
             # 保存合并后的节点
             _save_column_graph_to_neo4j(column.id, column.teacher_id, merged_nodes, edges)
             return {'nodes': merged_nodes, 'edges': edges, 'partitions': partitions}
+    
+    # 如果没有专栏但有节点，更新节点标签并保存
+    if updated_nodes != nodes:
+        # 找到第一个有教师ID的专栏
+        teacher_id = 1
+        all_columns = ExamColumn.query.all()
+        if all_columns:
+            teacher_id = all_columns[0].teacher_id
+        # 保存更新后的节点
+        _save_column_graph_to_neo4j(0, teacher_id, updated_nodes, edges)
+        return {'nodes': updated_nodes, 'edges': edges, 'partitions': partitions}
     
     # 如果没有数据且没有专栏，返回空数据
     if not nodes:
@@ -367,10 +415,18 @@ def get_columns():
                 'id': str(column.id),
                 'name': column.title,
                 'description': column.question_text or '',
+                'questionText': column.question_text or '',
+                'questionImagePath1': column.question_image_path1 or '',
+                'questionImagePath2': column.question_image_path2 or '',
+                'questionImagePath3': column.question_image_path3 or '',
+                'questionImagePath4': column.question_image_path4 or '',
+                'questionImagePath5': column.question_image_path5 or '',
+                'questionImagePath6': column.question_image_path6 or '',
                 'archiveId': column.archive_id,
                 'created': column.created_at.strftime('%Y-%m-%d'),
                 'teacherId': str(column.teacher_id),
-                'humanKnowledgePath': column.human_knowledge or ''
+                'humanKnowledgePath': column.human_knowledge or '',
+                'commentGenerationMethod': column.comment_generation_method or 'image'
             })
         
         return ok(result)
@@ -396,7 +452,8 @@ def get_column(id: int):
                 'questionImagePath4': column.question_image_path4 or '',
                 'questionImagePath5': column.question_image_path5 or '',
                 'questionImagePath6': column.question_image_path6 or '',
-                'teacherId': str(column.teacher_id)
+                'teacherId': str(column.teacher_id),
+                'commentGenerationMethod': column.comment_generation_method or 'image'
             })
         return fail('专栏不存在', 404)
     except Exception as e:
@@ -406,15 +463,74 @@ def get_column(id: int):
 @bp.route('/columns', methods=['POST'])
 def create_column():
     try:
-        title = request.form.get('name')
-        teacher_id = request.form.get('teacherId', 1)
-        archive_id = request.form.get('archiveId', type=int)
+        print(f'[DEBUG] 开始创建专栏')
+        print(f'[DEBUG] 请求方法: {request.method}')
+        print(f'[DEBUG] 请求路径: {request.path}')
+        
+        # 尝试获取JSON数据
+        title = None
+        teacher_id = 1
+        archive_id = None
+        question_text = None
+        use_model_prediction = True  # 默认使用模型预测
+        
+        json_data = request.get_json(silent=True) or {}
+        print(f'[DEBUG] JSON数据: {json_data}')
+        if json_data:
+            title = json_data.get('name')
+            teacher_id = json_data.get('teacherId', 1)
+            archive_id = json_data.get('archiveId')
+            if archive_id:
+                try:
+                    archive_id = int(archive_id)
+                except Exception:
+                    archive_id = None
+            question_text = json_data.get('questionText')
+            use_model_prediction = json_data.get('useModelPrediction', True)
+        
+        # 如果JSON数据不存在，尝试从表单获取
+        if not title:
+            title = request.form.get('name')
+            print(f'[DEBUG] 从表单获取title: {title}')
+            if not teacher_id:
+                teacher_id = request.form.get('teacherId', 1)
+            if archive_id is None:
+                try:
+                    archive_id = request.form.get('archiveId')
+                    if archive_id:
+                        archive_id = int(archive_id)
+                except Exception:
+                    archive_id = None
+            if not question_text:
+                question_text = request.form.get('questionText')
+            # 从表单获取useModelPrediction
+            use_model_prediction = request.form.get('useModelPrediction', 'true') == 'true'
+        
+        print(f'[DEBUG] 专栏数据: title={title}, teacher_id={teacher_id}, archive_id={archive_id}, question_text={question_text}, use_model_prediction={use_model_prediction}')
+        
+        # 检查title是否为空
+        if not title or not title.strip():
+            print(f'[DEBUG] title为空: {title}')
+            return fail('请输入专栏标题', 400)
+        
+        # 检查archive_id是否有效
+        if not archive_id:
+            print(f'[DEBUG] archive_id无效: {archive_id}')
+            return fail('请选择有效的模型存档', 400)
+        
+        # 获取评语生成方式
+        comment_generation_method = 'image'  # 默认值
+        comment_generation_method = json_data.get('commentGenerationMethod') or request.form.get('commentGenerationMethod', 'image')
+        if not comment_generation_method:
+            comment_generation_method = 'image'
+        print(f'[DEBUG] 评语生成方式: {comment_generation_method}')
         
         new_column = ExamColumn(
             teacher_id=teacher_id,
             title=title,
-            question_text="",
-            archive_id=archive_id
+            question_text=question_text,
+            archive_id=archive_id,
+            comment_generation_method=comment_generation_method
         )
         # 处理人工标注知识点文件上传
         human_knowledge_file = request.files.get('human_knowledge_file')
@@ -422,18 +538,13 @@ def create_column():
         if human_knowledge_file:
             # 该字段只允许 txt；这里不要复用 allowed_file（它依赖 ALLOWED_EXTENSIONS）
             if not human_knowledge_file.filename.lower().endswith('.txt'):
-                db.session.rollback()
                 return fail('只允许上传 TXT 格式的知识点标注文件', 400)
             file_path, filename = save_uploaded_file(human_knowledge_file, allowed_exts={'txt'})
             if file_path:
                 human_knowledge_path = f'uploads/{filename}'
                 new_column.human_knowledge = human_knowledge_path
             else:
-                db.session.rollback()
                 return fail('保存知识点标注文件失败', 500)
-        
-        db.session.add(new_column)
-        db.session.commit()
         
         question_image_paths = [None] * 6
         file_paths = []
@@ -453,7 +564,50 @@ def create_column():
         question_texts_dict = {}
         question_knowledge_dict = {}
         
-        if file_paths:
+        if question_text:
+            # 处理文本题目
+            print(f'[Text] 开始解析文本题目')
+            # 解析格式：1：题目；2：题目；...（支持中文分号和英文分号，支持多行题目）
+            import re
+            # 使用正则表达式匹配题号和题目内容，支持多行
+            # 匹配模式：数字 + 中文冒号或英文冒号 + 题目内容（直到下一个题号或文本结束）
+            pattern = r'(\d+)\s*[：:]\s*((?:(?!\d+\s*[：:]).)*)'
+            matches = re.findall(pattern, question_text, re.DOTALL)
+            
+            for match in matches:
+                question_num = match[0].strip()
+                question_content = match[1].strip()
+                # 移除末尾的分号（中文或英文）
+                question_content = re.sub(r'[;；]\s*$', '', question_content)
+                if question_content:
+                    question_texts_dict[question_num] = question_content
+            
+            print(f'[Text] 解析到 {len(question_texts_dict)} 道题目')
+            for q_num, q_content in question_texts_dict.items():
+                print(f'[Text] 第{q_num}题: {q_content[:50]}...' if len(q_content) > 50 else f'[Text] 第{q_num}题: {q_content}')
+            
+            # 对文本题目进行知识点推理（仅当教师选择使用模型预测时）
+            if use_model_prediction:
+                try:
+                    print(f'[Knowledge] 开始从文本题目预测知识点')
+                    
+                    # 获取知识点模型
+                    knowledge_model = get_knowledge_model()
+                    print(f'[DEBUG] 知识点模型: {knowledge_model}')
+                    if knowledge_model:
+                        from utils import predict_knowledge_for_text_questions
+                        all_knowledge = predict_knowledge_for_text_questions(question_texts_dict, knowledge_model)
+                        question_knowledge_dict = {str(k): v for k, v in all_knowledge.items()}
+                        print(f'[Knowledge] 预测到 {len(question_knowledge_dict)} 道题目的知识点')
+                    else:
+                        print(f'[ERROR] 知识点模型初始化失败')
+                except Exception as e:
+                    print(f'[WARN] 知识点预测失败: {str(e)}')
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f'[DEBUG] 跳过知识点预测，直接使用上传的txt文件中的知识点')
+        elif file_paths:
             print(f'[OCR] 开始并行处理 {len(file_paths)} 张图片')
             ocr_results = batch_ocr_process(file_paths, quality_mode='light', max_workers=2)
             
@@ -552,9 +706,15 @@ def create_column():
                         parsed_data = {}
                         for line in lines:
                             line = line.strip()
-                            if not line or ':' not in line:
+                            if not line:
                                 continue
-                            key_part, value_part = line.split(':', 1)
+                            # 支持中文冒号和英文冒号
+                            if ':' in line:
+                                key_part, value_part = line.split(':', 1)
+                            elif '：' in line:
+                                key_part, value_part = line.split('：', 1)
+                            else:
+                                continue
                             key_str = key_part.strip()
                             value_str = value_part.strip()
                             
@@ -569,7 +729,8 @@ def create_column():
                                 parsed_data[key_str] = nums
                         if parsed_data:
                             return parsed_data
-                    except Exception:
+                    except Exception as e:
+                        print(f'[DEBUG] 键值对文本解析失败: {str(e)}')
                         pass
                     
                     return None
@@ -582,27 +743,33 @@ def create_column():
                     print(f'[INFO] 成功加载并解析人工标注知识点文件')
                     print(f'[DEBUG] 人工标注知识点: {human_knowledge_data}')
                     
-                    # 结合人工标注知识点与模型预测知识点
-                    for q_key, base_codes in question_knowledge_dict.items():
-                        # 获取人工标注的知识点
-                        human_codes = human_knowledge_data.get(q_key, [])
-                        
-                        # 按要求：人工标注“追加”到模型预测之后，并保留序列顺序（去重但不打乱）
-                        merged_codes = []
-                        seen = set()
-                        for c in list(base_codes) + list(human_codes):
-                            try:
-                                c_int = int(c)
-                            except Exception:
-                                continue
-                            if c_int not in seen:
-                                seen.add(c_int)
-                                merged_codes.append(c_int)
-                        
-                        if merged_codes:
-                            question_knowledge_dict[q_key] = merged_codes
+                    # 如果教师选择不使用模型预测的知识点，直接使用人工标注的知识点
+                    if not use_model_prediction:
+                        print(f'[INFO] 直接使用人工标注的知识点，不使用模型预测')
+                        question_knowledge_dict = human_knowledge_data
+                    else:
+                        # 结合人工标注知识点与模型预测知识点
+                        print(f'[INFO] 结合人工标注知识点与模型预测知识点')
+                        for q_key, base_codes in question_knowledge_dict.items():
+                            # 获取人工标注的知识点
+                            human_codes = human_knowledge_data.get(q_key, [])
+                            
+                            # 按要求：人工标注“追加”到模型预测之后，并保留序列顺序（去重但不打乱）
+                            merged_codes = []
+                            seen = set()
+                            for c in list(base_codes) + list(human_codes):
+                                try:
+                                    c_int = int(c)
+                                except Exception:
+                                    continue
+                                if c_int not in seen:
+                                    seen.add(c_int)
+                                    merged_codes.append(c_int)
+                            
+                            if merged_codes:
+                                question_knowledge_dict[q_key] = merged_codes
                     
-                    print(f'[INFO] 成功结合人工标注知识点与模型预测知识点')
+                    print(f'[INFO] 知识点处理完成')
                 else:
                     print(f'[WARN] 人工标注知识点文件解析失败或为空')
             except Exception as e:
@@ -610,13 +777,73 @@ def create_column():
                 import traceback
                 traceback.print_exc()
         
-        new_column.question_text = json.dumps(question_texts_dict, ensure_ascii=False) if question_texts_dict else "{}"
-        new_column.question_knowledge = json.dumps(question_knowledge_dict, ensure_ascii=False) if question_knowledge_dict else "{}"
+        # 知识点预测逻辑 - 仅用于存储到question_knowledge字段
+        if question_text and use_model_prediction:
+            # Step 1: Fetch the ModelArchive
+            archive = ModelArchive.query.filter_by(id=archive_id).first()
+            if not archive:
+                return fail('模型存档不存在，无法进行文本知识点预测', 404)
+
+            # Step 2 & 3: Extract relevant paths and define NEURALCDM_DIR
+            cdm_model_path = archive.diagnosis_model_path
+            word_emb_path = archive.word_emb_path
+            knowledge_mapping_path = archive.knowledge_mapping_path
+
+            # Define NEURALCDM_DIR (absolute path to NeuralCDM_plus-main project)
+            backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+            NEURALCDM_DIR = os.path.join(backend_dir, 'NeuralCDM_plus-main')
+
+            # Step 4: Parse knowledge mapping and derive knowledge_num
+            knowledge_map_dict = {}
+            if knowledge_mapping_path:
+                knowledge_map_dict = _parse_knowledge_mapping_file(knowledge_mapping_path)
+            
+            knowledge_num = len(knowledge_map_dict) if knowledge_map_dict else 0
+            
+            # Step 5: Call predict_knowledge_from_text_batch
+            predicted_knowledge = {}
+            try:
+                print(f'[DEBUG] 开始进行文本知识点预测...')
+                predicted_knowledge = neuralcdm_predict.predict_knowledge_from_text_batch(
+                    text_input=question_text,
+                    cdm_model_path=cdm_model_path,
+                    word_emb_path=word_emb_path,
+                    neuralcdm_dir=NEURALCDM_DIR,
+                    knowledge_map=knowledge_map_dict,
+                    knowledge_num=knowledge_num
+                )
+                print(f'[DEBUG] 文本知识点预测完成，结果: {predicted_knowledge}')
+            except Exception as e:
+                print(f'[ERROR] 文本知识点预测失败: {str(e)}')
+                import traceback
+                traceback.print_exc()
+                predicted_knowledge = {}
+
+            # Step 6: Store the predicted knowledge in new_column.question_knowledge
+            if predicted_knowledge:
+                new_column.question_knowledge = json.dumps(predicted_knowledge, ensure_ascii=False)
+                print(f'[DEBUG] 文本知识点已准备保存到专栏')
+        elif question_text:
+            print(f'[DEBUG] 跳过知识点预测，直接使用上传的txt文件中的知识点')
+            # 当不使用模型预测时，清空question_knowledge字段
+            new_column.question_knowledge = "{}"
+
+        print(f'[DEBUG] 题目文本: {question_texts_dict}')
+        print(f'[DEBUG] 知识点: {question_knowledge_dict}')
         
+        new_column.question_text = json.dumps(question_texts_dict, ensure_ascii=False) if question_texts_dict else "{}"
+        if not use_model_prediction:
+            new_column.question_knowledge = json.dumps(question_knowledge_dict, ensure_ascii=False) if question_knowledge_dict else "{}"
+        
+        # 添加到会话并提交
+        db.session.add(new_column)
         db.session.commit()
+        print(f'[DEBUG] 专栏创建成功，ID: {new_column.id}')
+        print(f'[DEBUG] 专栏更新成功')
 
         # 创建专栏后，自动按题目知识点初始化教师知识图谱（小球 + 权重）
-        _ensure_teacher_graph(new_column)
+        # 暂时注释掉，避免Neo4j查询导致请求被挂起
+        # _ensure_teacher_graph(new_column)
         
         return ok({
             'id': str(new_column.id),
@@ -631,6 +858,7 @@ def create_column():
         db.session.rollback()
         import traceback
         traceback.print_exc()
+        print(f'[ERROR] 创建专栏失败：{str(e)}')
         return fail(f'创建专栏失败：{str(e)}', 500)
 
 
@@ -748,6 +976,7 @@ def update_column(id: int):
         column.title = data.get('name', column.title)
         column.question_text = data.get('description', column.question_text)
         column.archive_id = data.get('archiveId', column.archive_id)
+        column.comment_generation_method = data.get('commentGenerationMethod', column.comment_generation_method)
         db.session.commit()
         
         return ok({
@@ -756,7 +985,8 @@ def update_column(id: int):
             'description': column.question_text,
             'archiveId': column.archive_id,
             'created': column.created_at.strftime('%Y-%m-%d'),
-            'teacherId': str(column.teacher_id)
+            'teacherId': str(column.teacher_id),
+            'commentGenerationMethod': column.comment_generation_method or 'image'
         })
     except Exception as e:
         db.session.rollback()
@@ -788,6 +1018,7 @@ def delete_column(id: int):
             except Exception:
                 pass
         
+        # 删除图片文件
         image_paths = [
             column.question_image_path1,
             column.question_image_path2,
@@ -806,6 +1037,16 @@ def delete_column(id: int):
                         print(f'[DELETE] 删除图片文件: {full_path}')
                 except Exception as e:
                     print(f'[DELETE] 删除图片文件失败 {full_path}: {str(e)}')
+        
+        # 删除人工标注知识点文件
+        if column.human_knowledge:
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], os.path.basename(column.human_knowledge))
+            try:
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+                    print(f'[DELETE] 删除人工标注知识点文件: {full_path}')
+            except Exception as e:
+                print(f'[DELETE] 删除人工标注知识点文件失败 {full_path}: {str(e)}')
         
         comments = Comment.query.filter_by(column_id=id).all()
         for comment in comments:

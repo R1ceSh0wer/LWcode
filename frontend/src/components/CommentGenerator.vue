@@ -158,6 +158,42 @@
               </label>
             </div>
           </div>
+
+          <!-- 答题结果输入（仅文本上传的专栏） -->
+          <div v-if="isTextColumn" class="form-group">
+            <label class="form-label">学生答题结果</label>
+            <div class="answer-results">
+              <div v-for="(result, index) in answerResults" :key="index" class="answer-item">
+                <span class="question-number">第{{ index + 1 }}题：</span>
+                <div class="answer-options">
+                  <label
+                      :class="['answer-option', { active: result === true }]"
+                  >
+                    <input
+                        type="radio"
+                        :name="`answer-${index}`"
+                        :value="true"
+                        v-model="answerResults[index]"
+                        style="display: none;"
+                    >
+                    <span>正确</span>
+                  </label>
+                  <label
+                      :class="['answer-option', { active: result === false }]"
+                  >
+                    <input
+                        type="radio"
+                        :name="`answer-${index}`"
+                        :value="false"
+                        v-model="answerResults[index]"
+                        style="display: none;"
+                    >
+                    <span>错误</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -198,6 +234,8 @@ const focusAreas = ref({
   attitude: true,
   social: false
 })
+const answerResults = ref([]) // 存储直接输入的对错结果
+const isTextColumn = ref(false) // 是否为文本上传的专栏
 
 // 数据
 const students = ref([])
@@ -230,6 +268,9 @@ const closeModal = () => {
     attitude: true,
     social: false
   }
+  // 重置答题结果
+  answerResults.value = []
+  isTextColumn.value = false
 }
 
 const formatDate = (dateString) => {
@@ -265,18 +306,34 @@ const generateComment = async () => {
     return
   }
 
+  // 检查文本专栏的答题结果是否都已填写
+  if (isTextColumn.value) {
+    const allAnswered = answerResults.value.every(result => result !== null)
+    if (!allAnswered) {
+      alert('请填写所有题目的答题结果')
+      return
+    }
+  }
+
   isGenerating.value = true
   try {
     const focusAreasList = Object.entries(focusAreas.value)
       .filter(([_, value]) => value)
       .map(([key, _]) => key)
 
-    const result = await apiGenerateComment({
+    const commentData = {
       studentId: selectedStudentId.value,
       columnId: selectedColumnId.value,
       style: selectedStyle.value,
       focusAreas: focusAreasList
-    })
+    }
+
+    // 如果是文本专栏，添加答题结果
+    if (isTextColumn.value) {
+      commentData.answerResults = answerResults.value
+    }
+
+    const result = await apiGenerateComment(commentData)
 
     if (!result?.success) throw new Error(result?.message || '后端未返回评语结果')
     alert('评语生成成功！')
@@ -317,6 +374,46 @@ const loadComments = async () => {
     console.error('加载评语列表失败:', error)
   }
 }
+
+// 监听专栏选择变化
+watch(selectedColumnId, (newColumnId) => {
+  if (newColumnId) {
+    const column = columns.value.find(c => c.id === newColumnId)
+    if (column) {
+      // 检查是否为文本上传的专栏（通过检查是否有题目文本但没有图片路径）
+      isTextColumn.value = !!column.questionText && !column.questionImagePath1
+      
+      // 根据专栏的题目数量初始化答题结果数组
+      if (isTextColumn.value) {
+        // 解析题目文本，计算题目数量
+        let questionCount = 0
+        try {
+          // 尝试解析JSON格式的questionText
+          const questionText = column.questionText
+          const parsedQuestions = JSON.parse(questionText)
+          if (typeof parsedQuestions === 'object' && parsedQuestions !== null) {
+            questionCount = Object.keys(parsedQuestions).length
+          } else {
+            // 如果不是JSON格式，尝试按分号分割
+            const questions = questionText.split(';').filter(q => q.trim())
+            questionCount = questions.length
+          }
+        } catch (error) {
+          // 解析失败，使用默认值
+          questionCount = 0
+        }
+        
+        // 初始化答题结果数组
+        answerResults.value = new Array(questionCount).fill(null)
+      } else {
+        answerResults.value = []
+      }
+    }
+  } else {
+    isTextColumn.value = false
+    answerResults.value = []
+  }
+})
 
 // 生命周期
 onMounted(() => {
@@ -575,6 +672,53 @@ onMounted(() => {
 }
 
 .focus-area.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* 答题结果输入样式 */
+.answer-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.answer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.question-number {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  min-width: 80px;
+}
+
+.answer-options {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.answer-option {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.answer-option:hover {
+  border-color: #667eea;
+}
+
+.answer-option.active {
   border-color: #667eea;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;

@@ -309,10 +309,10 @@ if __name__ == '__main__':
     
     # 为训练集和预测集都生成知识点对
     print("\n生成训练集的知识点对...")
-    extract_topk(K=20, epoch=21, test_fpath='data/net_knowledge_train.json', dst_path='data/temp_train_pairs.FastRBTree')
+    extract_topk(K=20, epoch=18, test_fpath='data/net_knowledge_train.json', dst_path='data/temp_train_pairs.FastRBTree')
     
     print("生成预测集的知识点对...")
-    extract_topk(K=20, epoch=21, test_fpath='data/net_knowledge_pred.json', dst_path='data/temp_pred_pairs.FastRBTree')
+    extract_topk(K=20, epoch=18, test_fpath='data/net_knowledge_pred.json', dst_path='data/temp_pred_pairs.FastRBTree')
     
     # 合并两个知识点对文件
     print("合并知识点对文件...")

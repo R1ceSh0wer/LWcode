@@ -181,6 +181,70 @@ def predict_student_performance(model, student_id, column_id, exercise_ids, actu
         return [0.5] * len(exercise_ids), None
 
 
+def predict_knowledge_from_text_batch(text_input, cdm_model_path, word_emb_path, neuralcdm_dir, knowledge_map, knowledge_num=knowledge_n, K=20, epoch=21):
+    input_data = {
+        'text_input': text_input,
+        'cdm_model_path': cdm_model_path,
+        'word_emb_path': word_emb_path,
+        'knowledge_map': knowledge_map,
+        'knowledge_num': knowledge_num,
+        'K': K,
+        'epoch': epoch
+    }
+
+    try:
+        print(f'[NeuralCDM] 调用知识点预测服务...')
+        print(f'[NeuralCDM] 模型路径: {cdm_model_path}')
+        print(f'[NeuralCDM] 词嵌入路径: {word_emb_path}')
+        print(f'[NeuralCDM] 文本输入: {text_input[:50]}...') # Log first 50 characters of the text input
+
+        # 检查诊断服务脚本是否存在
+        if not os.path.exists(DIAGNOSIS_SCRIPT):
+            print(f'[NeuralCDM] 诊断服务脚本不存在: {DIAGNOSIS_SCRIPT}')
+            return None
+        
+        # 检查Python解释器是否存在
+        if not os.path.exists(NEURALCDM_PYTHON):
+            print(f'[NeuralCDM] Python解释器不存在: {NEURALCDM_PYTHON}')
+            return None
+
+        result = subprocess.run(
+            [NEURALCDM_PYTHON, DIAGNOSIS_SCRIPT],
+            cwd=NEURALCDM_DIR,
+            input=json.dumps(input_data),
+            capture_output=True,
+            encoding='utf-8',
+            timeout=120  # 增加超时时间到120秒，因为知识点提取可能更耗时
+        )
+
+        if result.returncode == 0:
+            try:
+                output = json.loads(result.stdout)
+                if output.get('success'):
+                    predicted_knowledge = output.get('predicted_knowledge', {})
+                    print(f'[NeuralCDM] 知识点预测服务返回成功')
+                    return predicted_knowledge
+                else:
+                    print(f'[NeuralCDM] 知识点预测服务失败: {output.get("error")}')
+                    return None
+            except json.JSONDecodeError as e:
+                print(f'[NeuralCDM] 解析知识点预测服务输出失败: {str(e)}')
+                print(f'[NeuralCDM] 原始输出: {result.stdout}')
+                return None
+        else:
+            print(f'[NeuralCDM] 知识点预测服务错误: {result.stderr}')
+            print(f'[NeuralCDM] 返回码: {result.returncode}')
+            return None
+    except subprocess.TimeoutExpired:
+        print(f'[NeuralCDM] 知识点预测服务超时')
+        return None
+    except Exception as e:
+        print(f'[NeuralCDM] 调用知识点预测服务失败: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return None
+
+
 def get_student_knowledge_status(model, student_id):
     import numpy as np
     

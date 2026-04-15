@@ -51,7 +51,13 @@ export const addColumn = async (columnData) => {
       formData.append('name', columnData.name);
       formData.append('teacherId', columnData.teacherId || 1);
       formData.append('archiveId', columnData.archiveId || '');
+      formData.append('useModelPrediction', columnData.useModelPrediction !== false ? 'true' : 'false');
+      formData.append('commentGenerationMethod', columnData.commentGenerationMethod || 'image');
       
+      // 添加文本题目（如果有）
+      if (columnData.questionText) {
+        formData.append('questionText', columnData.questionText);
+      }
       
       // 添加图片文件
       if (hasImageFiles) {
@@ -66,11 +72,7 @@ export const addColumn = async (columnData) => {
       }
       
       // 发送FormData请求
-      const response = await axios.post(`${API_BASE_URL}/columns`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const response = await axios.post(`${API_BASE_URL}/columns`, formData);
       
       return response.data;
     } else {

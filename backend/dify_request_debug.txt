@@ -12,44 +12,108 @@ Headers:
 
 Payload:
 {
-  "query": "{\"diagnosis\": {\"student_name\": \"小明\", \"average_prediction\": 0.9164, \"accuracy\": 0.6667, \"knowledge_mastery\": {\"124\": {\"predicted_mastery\": 0.9164, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2497}, \"123\": {\"predicted_mastery\": 0.9164, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2497}, \"73\": {\"predicted_mastery\": 0.9164, \"actual_mastery\": 0.6666666666666666, \"performance_gap\": 0.2497}, \"1\": {\"predicted_mastery\": 0.8548, \"actual_mastery\": 1.0, \"performance_gap\": -0.1452}}, \"strengths\": [1], \"weaknesses\": []}, \"knowledge_names\": {\"73\": \"赋值语句\", \"123\": \"信息技术及其影响\", \"124\": \"信息技术发展脉络与趋势\", \"1\": \"必修一 数据与计算\"}, \"more\": {}}",
+  "query": "{\"diagnosis\": {\"student_name\": \"陈鑫\", \"average_prediction\": 0.5112, \"accuracy\": 0.3333, \"knowledge_mastery\": {\"62\": {\"predicted_mastery\": 0.5253, \"actual_mastery\": 0.0, \"performance_gap\": 0.5253}, \"60\": {\"predicted_mastery\": 0.4814, \"actual_mastery\": 1.0, \"performance_gap\": -0.5186}, \"64\": {\"predicted_mastery\": 0.442, \"actual_mastery\": 1.0, \"performance_gap\": -0.558}, \"65\": {\"predicted_mastery\": 0.5184, \"actual_mastery\": 0.0, \"performance_gap\": 0.5184}, \"68\": {\"predicted_mastery\": 0.5151, \"actual_mastery\": 1.0, \"performance_gap\": -0.4849}, \"69\": {\"predicted_mastery\": 0.5151, \"actual_mastery\": 1.0, \"performance_gap\": -0.4849}, \"72\": {\"predicted_mastery\": 0.4816, \"actual_mastery\": 0.5, \"performance_gap\": -0.0184}, \"82\": {\"predicted_mastery\": 0.5191, \"actual_mastery\": 0.5, \"performance_gap\": 0.0191}, \"73\": {\"predicted_mastery\": 0.5058, \"actual_mastery\": 0.0, \"performance_gap\": 0.5058}, \"77\": {\"predicted_mastery\": 0.5246, \"actual_mastery\": 0.0, \"performance_gap\": 0.5246}, \"78\": {\"predicted_mastery\": 0.4646, \"actual_mastery\": 0.0, \"performance_gap\": 0.4646}, \"83\": {\"predicted_mastery\": 0.579, \"actual_mastery\": 0.5, \"performance_gap\": 0.079}, \"75\": {\"predicted_mastery\": 0.519, \"actual_mastery\": 0.0, \"performance_gap\": 0.519}}, \"strengths\": [60, 64, 68, 69], \"weaknesses\": [62, 65, 73, 77, 78, 75]}, \"knowledge_names\": {\"64\": \"算法的基本结构\", \"65\": \"算法的评价\", \"68\": \"几种程序设计语言的特点\", \"69\": \"Python语言基础知识\", \"72\": \"运算符与表达式\", \"73\": \"赋值语句\", \"75\": \"列表及其操作语句\", \"77\": \"变量\", \"78\": \"数据结构\", \"82\": \"输出语句\", \"83\": \"运用选择结构描述问题求解过程\", \"60\": \"计算机解决问题的过程与特点\", \"62\": \"算法的概念\"}, \"more\": {}}",
   "inputs": {
     "diagnosis": {
-      "student_name": "小明",
-      "average_prediction": 0.9164,
-      "accuracy": 0.6667,
+      "student_name": "陈鑫",
+      "average_prediction": 0.5112,
+      "accuracy": 0.3333,
       "knowledge_mastery": {
-        "124": {
-          "predicted_mastery": 0.9164,
-          "actual_mastery": 0.6666666666666666,
-          "performance_gap": 0.2497
+        "62": {
+          "predicted_mastery": 0.5253,
+          "actual_mastery": 0.0,
+          "performance_gap": 0.5253
         },
-        "123": {
-          "predicted_mastery": 0.9164,
-          "actual_mastery": 0.6666666666666666,
-          "performance_gap": 0.2497
+        "60": {
+          "predicted_mastery": 0.4814,
+          "actual_mastery": 1.0,
+          "performance_gap": -0.5186
+        },
+        "64": {
+          "predicted_mastery": 0.442,
+          "actual_mastery": 1.0,
+          "performance_gap": -0.558
+        },
+        "65": {
+          "predicted_mastery": 0.5184,
+          "actual_mastery": 0.0,
+          "performance_gap": 0.5184
+        },
+        "68": {
+          "predicted_mastery": 0.5151,
+          "actual_mastery": 1.0,
+          "performance_gap": -0.4849
+        },
+        "69": {
+          "predicted_mastery": 0.5151,
+          "actual_mastery": 1.0,
+          "performance_gap": -0.4849
+        },
+        "72": {
+          "predicted_mastery": 0.4816,
+          "actual_mastery": 0.5,
+          "performance_gap": -0.0184
+        },
+        "82": {
+          "predicted_mastery": 0.5191,
+          "actual_mastery": 0.5,
+          "performance_gap": 0.0191
         },
         "73": {
-          "predicted_mastery": 0.9164,
-          "actual_mastery": 0.6666666666666666,
-          "performance_gap": 0.2497
+          "predicted_mastery": 0.5058,
+          "actual_mastery": 0.0,
+          "performance_gap": 0.5058
         },
-        "1": {
-          "predicted_mastery": 0.8548,
-          "actual_mastery": 1.0,
-          "performance_gap": -0.1452
+        "77": {
+          "predicted_mastery": 0.5246,
+          "actual_mastery": 0.0,
+          "performance_gap": 0.5246
+        },
+        "78": {
+          "predicted_mastery": 0.4646,
+          "actual_mastery": 0.0,
+          "performance_gap": 0.4646
+        },
+        "83": {
+          "predicted_mastery": 0.579,
+          "actual_mastery": 0.5,
+          "performance_gap": 0.079
+        },
+        "75": {
+          "predicted_mastery": 0.519,
+          "actual_mastery": 0.0,
+          "performance_gap": 0.519
         }
       },
       "strengths": [
-        1
+        60,
+        64,
+        68,
+        69
       ],
-      "weaknesses": []
+      "weaknesses": [
+        62,
+        65,
+        73,
+        77,
+        78,
+        75
+      ]
     },
     "knowledge_names": {
+      "64": "算法的基本结构",
+      "65": "算法的评价",
+      "68": "几种程序设计语言的特点",
+      "69": "Python语言基础知识",
+      "72": "运算符与表达式",
       "73": "赋值语句",
-      "123": "信息技术及其影响",
-      "124": "信息技术发展脉络与趋势",
-      "1": "必修一 数据与计算"
+      "75": "列表及其操作语句",
+      "77": "变量",
+      "78": "数据结构",
+      "82": "输出语句",
+      "83": "运用选择结构描述问题求解过程",
+      "60": "计算机解决问题的过程与特点",
+      "62": "算法的概念"
     },
     "more": {}
   },
@@ -59,41 +123,105 @@ Payload:
 
 诊断数据 (格式化):
 {
-  "student_name": "小明",
-  "average_prediction": 0.9164,
-  "accuracy": 0.6667,
+  "student_name": "陈鑫",
+  "average_prediction": 0.5112,
+  "accuracy": 0.3333,
   "knowledge_mastery": {
-    "124": {
-      "predicted_mastery": 0.9164,
-      "actual_mastery": 0.6666666666666666,
-      "performance_gap": 0.2497
+    "62": {
+      "predicted_mastery": 0.5253,
+      "actual_mastery": 0.0,
+      "performance_gap": 0.5253
     },
-    "123": {
-      "predicted_mastery": 0.9164,
-      "actual_mastery": 0.6666666666666666,
-      "performance_gap": 0.2497
+    "60": {
+      "predicted_mastery": 0.4814,
+      "actual_mastery": 1.0,
+      "performance_gap": -0.5186
+    },
+    "64": {
+      "predicted_mastery": 0.442,
+      "actual_mastery": 1.0,
+      "performance_gap": -0.558
+    },
+    "65": {
+      "predicted_mastery": 0.5184,
+      "actual_mastery": 0.0,
+      "performance_gap": 0.5184
+    },
+    "68": {
+      "predicted_mastery": 0.5151,
+      "actual_mastery": 1.0,
+      "performance_gap": -0.4849
+    },
+    "69": {
+      "predicted_mastery": 0.5151,
+      "actual_mastery": 1.0,
+      "performance_gap": -0.4849
+    },
+    "72": {
+      "predicted_mastery": 0.4816,
+      "actual_mastery": 0.5,
+      "performance_gap": -0.0184
+    },
+    "82": {
+      "predicted_mastery": 0.5191,
+      "actual_mastery": 0.5,
+      "performance_gap": 0.0191
     },
     "73": {
-      "predicted_mastery": 0.9164,
-      "actual_mastery": 0.6666666666666666,
-      "performance_gap": 0.2497
+      "predicted_mastery": 0.5058,
+      "actual_mastery": 0.0,
+      "performance_gap": 0.5058
     },
-    "1": {
-      "predicted_mastery": 0.8548,
-      "actual_mastery": 1.0,
-      "performance_gap": -0.1452
+    "77": {
+      "predicted_mastery": 0.5246,
+      "actual_mastery": 0.0,
+      "performance_gap": 0.5246
+    },
+    "78": {
+      "predicted_mastery": 0.4646,
+      "actual_mastery": 0.0,
+      "performance_gap": 0.4646
+    },
+    "83": {
+      "predicted_mastery": 0.579,
+      "actual_mastery": 0.5,
+      "performance_gap": 0.079
+    },
+    "75": {
+      "predicted_mastery": 0.519,
+      "actual_mastery": 0.0,
+      "performance_gap": 0.519
     }
   },
   "strengths": [
-    1
+    60,
+    64,
+    68,
+    69
   ],
-  "weaknesses": []
+  "weaknesses": [
+    62,
+    65,
+    73,
+    77,
+    78,
+    75
+  ]
 }
 
 知识点名称:
 {
+  "64": "算法的基本结构",
+  "65": "算法的评价",
+  "68": "几种程序设计语言的特点",
+  "69": "Python语言基础知识",
+  "72": "运算符与表达式",
   "73": "赋值语句",
-  "123": "信息技术及其影响",
-  "124": "信息技术发展脉络与趋势",
-  "1": "必修一 数据与计算"
+  "75": "列表及其操作语句",
+  "77": "变量",
+  "78": "数据结构",
+  "82": "输出语句",
+  "83": "运用选择结构描述问题求解过程",
+  "60": "计算机解决问题的过程与特点",
+  "62": "算法的概念"
 }

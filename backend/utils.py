@@ -1641,3 +1641,37 @@ def generate_comment_with_dify(student_name, exercise_ids, predictions, actual_s
     
     print(f'{"="*60}\n')
     return comment
+
+
+def predict_knowledge_for_text_questions(question_texts, knowledge_model):
+    """
+    对文本题目进行知识点预测
+    :param question_texts: 字典，{题号: 题目内容}
+    :param knowledge_model: 知识点预测模型
+    :return: 字典，{题号: 知识点}
+    """
+    try:
+        print(f'[Knowledge] 开始预测文本题目的知识点')
+        question_knowledge_dict = {}
+        
+        for question_num, question_content in question_texts.items():
+            try:
+                # 使用predict_knowledge_from_text函数来预测知识点
+                knowledge_results = predict_knowledge_from_text(knowledge_model, question_content, top_k=3)
+                if knowledge_results:
+                    knowledge = [r['knowledge_id'] for r in knowledge_results]
+                    question_knowledge_dict[question_num] = knowledge
+                    print(f'[Knowledge] 第{question_num}题预测知识点: {knowledge}')
+                else:
+                    print(f'[Knowledge] 第{question_num}题未预测到知识点')
+            except Exception as e:
+                print(f'[WARN] 预测第{question_num}题知识点失败: {str(e)}')
+                continue
+        
+        print(f'[Knowledge] 文本题目知识点预测完成，共预测 {len(question_knowledge_dict)} 道题')
+        return question_knowledge_dict
+    except Exception as e:
+        print(f'[ERROR] 文本题目知识点预测失败: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return {}

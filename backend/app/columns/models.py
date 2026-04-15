@@ -19,6 +19,7 @@ class ExamColumn(db.Model):
     archive_id = db.Column(db.Integer, db.ForeignKey('model_archives.id'))  # 关联的存档 ID
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     human_knowledge = db.Column(db.String(200)) # 人工标注知识点文件路径
+    comment_generation_method = db.Column(db.String(50), default='image')  # 评语生成方式：image=上传图片, text=选择错误试题, sequence=依次输入答对答错情况
     created_at = db.Column(db.DateTime, default=datetime.now)
 
 

@@ -375,22 +375,32 @@ def create_summary_comment(studentId=None):
 
 @bp.route('/comments/generate', methods=['POST'])
 def generate_comment():
-    data = request.get_json()
-    student_id = data.get('studentId')
-    column_id = data.get('columnId')
-    style = data.get('style', 'encouraging')
-    image_ids = data.get('imageIds', [])
-    image_paths = data.get('imagePaths', [])
-    addition = data.get('addition', '')
-    
-    style_map = {
-        'encouraging': '鼓励',
-        'detailed': '详细',
-        'concise': '简洁'
-    }
-    style = style_map.get(style, '鼓励')
-    
     try:
+        data = request.get_json()
+        student_id = data.get('studentId')
+        column_id = data.get('columnId')
+        style = data.get('style', 'encouraging')
+        image_ids = data.get('imageIds', [])
+        image_paths = data.get('imagePaths', [])
+        addition = data.get('addition', '')
+        answerResults = data.get('answerResults', [])  # 新增：直接输入的对错结果
+        
+        print(f'[DEBUG] 接收到的请求数据:')
+        print(f'[DEBUG] student_id: {student_id}')
+        print(f'[DEBUG] column_id: {column_id}')
+        print(f'[DEBUG] style: {style}')
+        print(f'[DEBUG] image_ids: {image_ids}')
+        print(f'[DEBUG] image_paths: {image_paths}')
+        print(f'[DEBUG] addition: {addition}')
+        print(f'[DEBUG] answerResults: {answerResults}')
+    
+        style_map = {
+            'encouraging': '鼓励',
+            'detailed': '详细',
+            'concise': '简洁'
+        }
+        style = style_map.get(style, '鼓励')
+        
         student = User.query.filter_by(id=student_id, role='student').first()
         if not student:
             return fail('学生不存在', 404)
@@ -456,8 +466,8 @@ def generate_comment():
                 if path.startswith('/'):
                     path = path[1:]
                 answer_image_paths[i] = path
-        else:
-            if not existing_comment and image_ids:
+        elif image_ids:
+            if not existing_comment:
                 upload_folder = os.path.join(os.getcwd(), 'uploads')
                 
                 if not os.path.exists(upload_folder):
@@ -487,12 +497,12 @@ def generate_comment():
             new_comment.style = style
             new_comment.addition = addition
             # 重置新字段的值
-            new_comment.answer_result = None
             new_comment.cdm_predictions = None
             new_comment.student_proficiency = None
             for i in range(1, 7):
                 setattr(new_comment, f"answer_text{i}", "")
-            db.session.commit()
+            # 不要在这里提交数据库，等到设置answer_result后再提交
+            # db.session.commit()
         else:
             new_comment = Comment(
                 column_id=column_id,
@@ -507,8 +517,7 @@ def generate_comment():
                 addition=addition
             )
             db.session.add(new_comment)
-            db.session.commit()
-            print(f"创建新记录，ID: {new_comment.id}")
+            # 先不提交数据库，等到设置answer_result后再提交
         
         # 获取专栏创建时的空白试题图片路径
         blank_image_paths = [
@@ -520,39 +529,107 @@ def generate_comment():
             column.question_image_path6
         ]
         
-        # 使用画圈识别功能识别教师批改的错题号
-        print(f'[INFO] 开始识别画圈标记')
+        # 处理学生答题结果
+        print(f'[INFO] 开始处理学生答题结果')
         print(f'[DEBUG] 空白图片路径: {blank_image_paths}')
         print(f'[DEBUG] 答案图片路径: {answer_image_paths}')
-        try:
-            answer_results = batch_compare_images(blank_image_paths, answer_image_paths, total_questions=6)
-            print(f'[DEBUG] 识别结果: {answer_results}')
+        print(f'[DEBUG] 直接输入的答案结果: {answerResults}')
+        print(f'[DEBUG] answerResults是否存在: {answerResults is not None}')
+        print(f'[DEBUG] answerResults类型: {type(answerResults)}')
+        
+        flattened_results = []
+        
+        if answerResults and len(answerResults) > 0:
+            # 使用直接输入的对错结果
+            print(f'[INFO] 使用直接输入的对错结果')
+            print(f'[DEBUG] answerResults长度: {len(answerResults)}')
+            print(f'[DEBUG] answerResults内容: {answerResults}')
             
-            # 处理批量对比结果，将列表扁平化
-            flattened_results = []
-            for result in answer_results:
-                if isinstance(result, list):
-                    for mark in result:
-                        flattened_results.append(mark)
-                else:
+            if len(answerResults) > 0:
+                print(f'[DEBUG] answerResults[0]类型: {type(answerResults[0])}')
+                if isinstance(answerResults[0], dict):
+                    print(f'[DEBUG] answerResults[0]内容: {answerResults[0]}')
+                    if 'isCorrect' in answerResults[0]:
+                        print(f'[DEBUG] answerResults[0]["isCorrect"]类型: {type(answerResults[0]["isCorrect"])}')
+                        print(f'[DEBUG] answerResults[0]["isCorrect"]值: {answerResults[0]["isCorrect"]}')
+            
+            for result in answerResults:
+                if isinstance(result, dict) and 'isCorrect' in result:
+                    # 前端传递的格式：{questionNumber: 1, isCorrect: 'true'}
+                    is_correct = result['isCorrect']
+                    print(f'[DEBUG] 处理结果: {result}, is_correct类型: {type(is_correct)}, 值: {is_correct}')
+                    if isinstance(is_correct, bool):
+                        flattened_results.append(is_correct)
+                        print(f'[DEBUG] 添加布尔值: {is_correct}')
+                    elif isinstance(is_correct, str):
+                        if is_correct.lower() == 'true' or is_correct == '1' or is_correct == '正确':
+                            flattened_results.append(True)
+                            print(f'[DEBUG] 添加字符串true: True')
+                        elif is_correct.lower() == 'false' or is_correct == '0' or is_correct == '错误':
+                            flattened_results.append(False)
+                            print(f'[DEBUG] 添加字符串false: False')
+                        else:
+                            flattened_results.append(None)
+                            print(f'[DEBUG] 添加字符串其他: None')
+                    else:
+                        flattened_results.append(None)
+                        print(f'[DEBUG] 添加其他类型: None')
+                elif isinstance(result, bool):
                     flattened_results.append(result)
-            print(f'[DEBUG] 扁平化结果: {flattened_results}')
-            
-            # 将对错情况存入 answer_result 列
-            answer_result_str = "|".join(["正确" if r is True else "错误" if r is False else "未识别" for r in flattened_results])
-            print(f'[DEBUG] answer_result_str: {answer_result_str}')
-            new_comment.answer_result = answer_result_str
-            print(f'[DEBUG] new_comment.answer_result: {new_comment.answer_result}')
-        except Exception as e:
-            print(f'[ERROR] 识别画圈标记失败: {str(e)}')
-            import traceback
-            traceback.print_exc()
-            # 设置默认值
-            new_comment.answer_result = "未识别|未识别|未识别|未识别|未识别|未识别"
-            print(f'[DEBUG] 异常情况下的 answer_result: {new_comment.answer_result}')
+                    print(f'[DEBUG] 添加布尔值: {result}')
+                elif isinstance(result, str):
+                    if result.lower() == 'true' or result == '1' or result == '正确':
+                        flattened_results.append(True)
+                        print(f'[DEBUG] 添加字符串true: True')
+                    elif result.lower() == 'false' or result == '0' or result == '错误':
+                        flattened_results.append(False)
+                        print(f'[DEBUG] 添加字符串false: False')
+                    else:
+                        flattened_results.append(None)
+                        print(f'[DEBUG] 添加字符串其他: None')
+                else:
+                    flattened_results.append(None)
+                    print(f'[DEBUG] 添加其他类型: None')
+            print(f'[DEBUG] 处理后的flattened_results: {flattened_results}')
+        else:
+            # 使用画圈识别功能识别教师批改的错题号
+            print(f'[INFO] 使用画圈识别功能')
+            try:
+                answer_results = batch_compare_images(blank_image_paths, answer_image_paths, total_questions=6)
+                print(f'[DEBUG] 识别结果: {answer_results}')
+                
+                # 处理批量对比结果，将列表扁平化
+                for result in answer_results:
+                    if isinstance(result, list):
+                        for mark in result:
+                            flattened_results.append(mark)
+                    else:
+                        flattened_results.append(result)
+            except Exception as e:
+                print(f'[ERROR] 识别画圈标记失败: {str(e)}')
+                import traceback
+                traceback.print_exc()
+                # 设置默认值
+                flattened_results = [None] * 6
+        
+        # 确保flattened_results不为空
+        if not flattened_results:
+            print(f'[INFO] flattened_results为空，使用默认值')
+            flattened_results = [None] * 6
+        
+        print(f'[DEBUG] 最终结果: {flattened_results}')
+        
+        # 直接使用所有的答题结果，不截断
+        print(f'[DEBUG] 最终flattened_results: {flattened_results}')
+        # 将对错情况存入 answer_result 列
+        answer_result_str = "|".join(["正确" if r is True else "错误" if r is False else "未识别" for r in flattened_results])
+        print(f'[DEBUG] answer_result_str: {answer_result_str}')
+        new_comment.answer_result = answer_result_str
+        print(f'[DEBUG] new_comment.answer_result: {new_comment.answer_result}')
         
         print(f'[DEBUG] 提交前 - new_comment.id: {new_comment.id}')
         print(f'[DEBUG] 提交前 - new_comment.answer_result: {new_comment.answer_result}')
+        # 提交数据库，确保answer_result被正确存储
         db.session.commit()
         print(f'[DEBUG] 提交后 - new_comment.id: {new_comment.id}')
         print(f'[DEBUG] 提交后 - new_comment.answer_result: {new_comment.answer_result}')
@@ -560,238 +637,279 @@ def generate_comment():
         temp_comment = Comment.query.get(new_comment.id)
         print(f'[DEBUG] 重新加载后 - temp_comment.answer_result: {temp_comment.answer_result}')
         
+        # 检查是否需要使用模型预测
+        use_model_prediction = request.json.get('useModelPrediction', True)
+        print(f'[DEBUG] useModelPrediction: {use_model_prediction}')
+        
         # ========== NeuralCDM+ 模型预测流程 ==========
-        print(f'\n{"="*60}')
-        print(f'[NeuralCDM] 开始学生能力预测分析')
-        print(f'{"="*60}')
-        
-        # 根据专栏关联的存档确定模型路径
-        print(f'[DEBUG] 专栏ID: {column.id}')
-        print(f'[DEBUG] 存档ID: {column.archive_id}')
-        
-        if column.archive_id:
-            from app.archives.models import ModelArchive
-            archive = ModelArchive.query.get(column.archive_id)
-            print(f'[DEBUG] 存档对象: {archive}')
+        if use_model_prediction:
+            print(f'\n{"="*60}')
+            print(f'[NeuralCDM] 开始学生能力预测分析')
+            print(f'{"="*60}')
             
-            if archive and archive.diagnosis_model_path:
-                print(f'[DEBUG] 存档名称: {archive.name}')
-                print(f'[DEBUG] 诊断模型路径: {archive.diagnosis_model_path}')
+            # 根据专栏关联的存档确定模型路径
+            print(f'[DEBUG] 专栏ID: {column.id}')
+            print(f'[DEBUG] 存档ID: {column.archive_id}')
+            
+            if column.archive_id:
+                from app.archives.models import ModelArchive
+                archive = ModelArchive.query.get(column.archive_id)
+                print(f'[DEBUG] 存档对象: {archive}')
                 
-                # 检查路径是否存在
-                if os.path.isabs(archive.diagnosis_model_path):
-                    cdm_model_path = archive.diagnosis_model_path
-                else:
-                    # 使用更可靠的路径计算方式
-                    # 获取 backend 目录的绝对路径（__file__ 是 app/comments/routes.py）
-                    # dirname(__file__) 是 app/comments
-                    # dirname(app/comments) 是 app
-                    # dirname(app) 是 backend
-                    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+                if archive and archive.diagnosis_model_path:
+                    print(f'[DEBUG] 存档名称: {archive.name}')
+                    print(f'[DEBUG] 诊断模型路径: {archive.diagnosis_model_path}')
                     
-                    # archives 目录在 backend 根目录下，不在 uploads 下
-                    archives_dir = os.path.join(backend_dir, 'archives')
-                    
-                    print(f'[DEBUG] backend_dir: {backend_dir}')
-                    print(f'[DEBUG] archives_dir: {archives_dir}')
-                    
-                    # 尝试 archives 目录
-                    cdm_model_path = os.path.join(archives_dir, archive.diagnosis_model_path)
-                    print(f'[DEBUG] 尝试路径1 (archives): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
-                    
-                    if not os.path.exists(cdm_model_path):
-                        # 尝试将路径中的 archives 替换为 uploads/archives
-                        model_path_in_uploads = archive.diagnosis_model_path.replace('archives\\', 'uploads\\archives\\').replace('archives/', 'uploads/archives/')
-                        cdm_model_path = os.path.join(backend_dir, model_path_in_uploads)
-                        print(f'[DEBUG] 尝试路径2 (uploads/archives): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
+                    # 检查路径是否存在
+                    if os.path.isabs(archive.diagnosis_model_path):
+                        cdm_model_path = archive.diagnosis_model_path
+                    else:
+                        # 使用更可靠的路径计算方式
+                        # 获取 backend 目录的绝对路径（__file__ 是 app/comments/routes.py）
+                        # dirname(__file__) 是 app/comments
+                        # dirname(app/comments) 是 app
+                        # dirname(app) 是 backend
+                        backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+                        
+                        # archives 目录在 backend 根目录下，不在 uploads 下
+                        archives_dir = os.path.join(backend_dir, 'archives')
+                        
+                        print(f'[DEBUG] backend_dir: {backend_dir}')
+                        print(f'[DEBUG] archives_dir: {archives_dir}')
+                        
+                        # 尝试 archives 目录
+                        cdm_model_path = os.path.join(archives_dir, archive.diagnosis_model_path)
+                        print(f'[DEBUG] 尝试路径1 (archives): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
                         
                         if not os.path.exists(cdm_model_path):
-                            # 尝试当前工作目录
-                            cdm_model_path = os.path.join(os.getcwd(), archive.diagnosis_model_path)
-                            print(f'[DEBUG] 尝试路径3 (cwd): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
+                            # 尝试将路径中的 archives 替换为 uploads/archives
+                            model_path_in_uploads = archive.diagnosis_model_path.replace('archives\\', 'uploads\\archives\\').replace('archives/', 'uploads/archives/')
+                            cdm_model_path = os.path.join(backend_dir, model_path_in_uploads)
+                            print(f'[DEBUG] 尝试路径2 (uploads/archives): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
                             
                             if not os.path.exists(cdm_model_path):
-                                # 尝试父目录
-                                cdm_model_path = os.path.join(os.path.dirname(os.getcwd()), archive.diagnosis_model_path)
-                                print(f'[DEBUG] 尝试路径4 (parent): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
-                
-                print(f'[NeuralCDM] 使用存档模型：{archive.name}')
+                                # 尝试当前工作目录
+                                cdm_model_path = os.path.join(os.getcwd(), archive.diagnosis_model_path)
+                                print(f'[DEBUG] 尝试路径3 (cwd): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
+                                
+                                if not os.path.exists(cdm_model_path):
+                                    # 尝试父目录
+                                    cdm_model_path = os.path.join(os.path.dirname(os.getcwd()), archive.diagnosis_model_path)
+                                    print(f'[DEBUG] 尝试路径4 (parent): {cdm_model_path}, 存在: {os.path.exists(cdm_model_path)}')
+                    
+                    print(f'[NeuralCDM] 使用存档模型：{archive.name}')
+                else:
+                    # 尝试不同的默认路径
+                    cdm_model_path = os.path.join(os.getcwd(), 'NeuralCDM_plus-main', 'model', 'model_epoch28')
+                    if not os.path.exists(cdm_model_path):
+                        cdm_model_path = os.path.join(os.path.dirname(os.getcwd()), 'NeuralCDM_plus-main', 'model', 'model_epoch28')
+                    print(f'[NeuralCDM] 存档模型不可用，使用默认模型')
             else:
                 # 尝试不同的默认路径
                 cdm_model_path = os.path.join(os.getcwd(), 'NeuralCDM_plus-main', 'model', 'model_epoch28')
                 if not os.path.exists(cdm_model_path):
                     cdm_model_path = os.path.join(os.path.dirname(os.getcwd()), 'NeuralCDM_plus-main', 'model', 'model_epoch28')
-                print(f'[NeuralCDM] 存档模型不可用，使用默认模型')
-        else:
-            # 尝试不同的默认路径
-            cdm_model_path = os.path.join(os.getcwd(), 'NeuralCDM_plus-main', 'model', 'model_epoch28')
-            if not os.path.exists(cdm_model_path):
-                cdm_model_path = os.path.join(os.path.dirname(os.getcwd()), 'NeuralCDM_plus-main', 'model', 'model_epoch28')
-            print(f'[NeuralCDM] 未关联存档，使用默认模型')
-        
-        print(f'[NeuralCDM] 模型路径：{cdm_model_path}')
-        print(f'[DEBUG] 模型路径是否存在: {os.path.exists(cdm_model_path)}')
-        
-        try:
-            cdm_model = load_neuralcdm_model(cdm_model_path)
+                print(f'[NeuralCDM] 未关联存档，使用默认模型')
             
-            student_id_int = int(student_id) if student_id else 0
-            print(f'[NeuralCDM] 学生ID: {student_id_int}')
+            print(f'[NeuralCDM] 模型路径：{cdm_model_path}')
+            print(f'[DEBUG] 模型路径是否存在: {os.path.exists(cdm_model_path)}')
             
-            exercise_ids = []
-            knowledge_codes = []  # 用于Dify：与 exercise_ids 一一对应的知识点序号列表
-            knowledge_codes_dict = {}  # 用于NeuralCDM：键为 img_{题号}
-            actual_scores = []
-            
-            # 直接使用专栏创建时已结合的知识点
-            base_question_knowledge = json.loads(column.question_knowledge) if column.question_knowledge else {}
-            if not isinstance(base_question_knowledge, dict):
-                base_question_knowledge = {}
+            try:
+                cdm_model = load_neuralcdm_model(cdm_model_path)
+                
+                student_id_int = int(student_id) if student_id else 0
+                print(f'[NeuralCDM] 学生ID: {student_id_int}')
+                
+                exercise_ids = []
+                knowledge_codes = []  # 用于Dify：与 exercise_ids 一一对应的知识点序号列表
+                knowledge_codes_dict = {}  # 用于NeuralCDM：键为 img_{题号}
+                actual_scores = []
+                
+                # 直接使用专栏创建时已结合的知识点
+                print(f'[DEBUG] column.question_knowledge 原始值: {column.question_knowledge}')
+                base_question_knowledge = json.loads(column.question_knowledge) if column.question_knowledge else {}
+                print(f'[DEBUG] base_question_knowledge (解析后): {base_question_knowledge}')
+                if not isinstance(base_question_knowledge, dict):
+                    base_question_knowledge = {}
+                print(f'[DEBUG] base_question_knowledge (归一化后): {base_question_knowledge}')
 
-            # 归一化：确保键为字符串，值为 int 列表
-            normalized_base = {}
-            for q_key, codes in base_question_knowledge.items():
-                q_str = str(q_key).strip()
-                if not q_str:
-                    continue
+                # 归一化：确保键为字符串，值为 int 列表
+                normalized_base = {}
+                for q_key, codes in base_question_knowledge.items():
+                    q_str = str(q_key).strip()
+                    if not q_str:
+                        continue
 
-                if isinstance(codes, list):
-                    norm_codes = []
-                    for c in codes:
+                    if isinstance(codes, list):
+                        norm_codes = []
+                        for c in codes:
+                            try:
+                                norm_codes.append(int(c))
+                            except Exception:
+                                continue
+                        if norm_codes:
+                            normalized_base[q_str] = norm_codes
+                    else:
                         try:
-                            norm_codes.append(int(c))
+                            normalized_base[q_str] = [int(codes)]
                         except Exception:
                             continue
-                    if norm_codes:
-                        normalized_base[q_str] = norm_codes
-                else:
-                    try:
-                        normalized_base[q_str] = [int(codes)]
-                    except Exception:
-                        continue
-            base_question_knowledge = normalized_base
+                print(f'[DEBUG] normalized_base: {normalized_base}')
+                base_question_knowledge = normalized_base
 
-            knowledge_num = 196  # 与 NeuralCDM_plus-main/diagnosis_service.py 的 knowledge_n 一致
+                knowledge_num = 196  # 与 NeuralCDM_plus-main/diagnosis_service.py 的 knowledge_n 一致
 
-            # 基于“题号”构建 knowledge_codes / knowledge_masks 输入
-            # 注意：flatttened_results 的顺序由 batch_compare_images 按题号生成，因此 i+1 就是题号
-            for i, result in enumerate(flattened_results):
-                exer_id = i + 1  # 题号
-                exercise_ids.append(exer_id)
+                # 基于“题号”构建 knowledge_codes / knowledge_masks 输入
+                # 注意：flatttened_results 的顺序由 batch_compare_images 按题号生成，因此 i+1 就是题号
+                for i, result in enumerate(flattened_results):
+                    exer_id = i + 1  # 题号
+                    exercise_ids.append(exer_id)
 
-                q_key = str(exer_id)
-                # 直接使用专栏中已结合的知识点
-                merged_codes = base_question_knowledge.get(q_key) or [exer_id]
+                    q_key = str(exer_id)
+                    # 直接使用专栏中已结合的知识点
+                    merged_codes = base_question_knowledge.get(q_key) or [exer_id]
 
-                knowledge_codes.append(merged_codes)
-                knowledge_codes_dict[f'img_{exer_id}'] = merged_codes
+                    knowledge_codes.append(merged_codes)
+                    knowledge_codes_dict[f'img_{exer_id}'] = merged_codes
 
-                if result is True:
-                    actual_scores.append(1)
-                elif result is False:
-                    actual_scores.append(0)
-                else:
-                    actual_scores.append(-1)
-            
-            print(f'[NeuralCDM] 题目ID列表: {exercise_ids}')
-            print(f'[NeuralCDM] 知识点编码列表: {knowledge_codes}')
-            print(f'[NeuralCDM] 实际得分列表: {actual_scores} (1=正确, 0=错误, -1=未识别)')
-            
-            if exercise_ids:
-                # 确保学生 ID 在模型范围内
-                if student_id_int >= 190:
-                    # 使用默认学生 ID 1
-                    student_id_int = 1
-                    print(f'[NeuralCDM] 学生 ID {student_id} 超出模型范围，使用默认 ID 1')
+                    if result is True:
+                        actual_scores.append(1)
+                    elif result is False:
+                        actual_scores.append(0)
+                    else:
+                        actual_scores.append(-1)
+
+                print(f'[DEBUG] 构建后的 exercise_ids: {exercise_ids}')
+                print(f'[DEBUG] 构建后的 knowledge_codes: {knowledge_codes}')
                 
-                print(f'[DEBUG] 调用 predict_student_performance')
-                print(f'[DEBUG] cdm_model: {cdm_model}')
-                print(f'[DEBUG] student_id_int: {student_id_int}')
-                print(f'[DEBUG] exercise_ids: {exercise_ids}')
-                print(f'[DEBUG] knowledge_codes: {knowledge_codes}')
+                print(f'[NeuralCDM] 题目ID列表: {exercise_ids}')
+                print(f'[NeuralCDM] 知识点编码列表: {knowledge_codes}')
+                print(f'[NeuralCDM] 实际得分列表: {actual_scores} (1=正确, 0=错误, -1=未识别)')
                 
-                predictions, _mastery = predict_student_performance(
-                    cdm_model, 
-                    student_id_int, 
-                    column.id,
-                    exercise_ids,
-                    actual_scores,
-                    knowledge_codes_dict,
-                    knowledge_num
-                )
-                
-                print(f'[DEBUG] 预测结果: {predictions}')
-                
-                print(f'\n[NeuralCDM] 预测结果:')
-                print(f'-' * 60)
-                for i, (exer_id, pred, actual) in enumerate(zip(exercise_ids, predictions, actual_scores)):
-                    actual_str = '正确' if actual == 1 else '错误' if actual == 0 else '未识别'
-                    pred_str = '正确' if pred >= 0.5 else '错误'
-                    match_str = '✓' if (pred >= 0.5 and actual == 1) or (pred < 0.5 and actual == 0) else '✗'
-                    print(f'  第{exer_id}题: 预测正确率={pred:.4f} ({pred_str}), 实际={actual_str}, 预测{match_str}')
-                
-                print(f'\n[NeuralCDM] 学生知识点掌握情况分析:')
-                print(f'-' * 60)
-                weaknesses = analyze_student_weaknesses(cdm_model, student_id_int, top_n=5)
-                print(f'[DEBUG] 弱点分析结果: {weaknesses}')
-                for wk in weaknesses:
-                    print(f'  知识点{wk["knowledge_id"]}: 掌握度={wk["proficiency"]:.4f} ({wk["level"]})')
-                
-                avg_proficiency = sum([w['proficiency'] for w in weaknesses]) / len(weaknesses)
-                print(f'\n[NeuralCDM] 学生整体能力评估:')
-                print(f'  平均掌握度: {avg_proficiency:.4f}')
-                print(f'  能力等级: {"优秀" if avg_proficiency > 0.7 else "良好" if avg_proficiency > 0.5 else "一般" if avg_proficiency > 0.3 else "需加强"}')
-                
-                cdm_results = format_cdm_predictions(exercise_ids, predictions)
-                print(f'[DEBUG] cdm_results: {cdm_results}')
-                print(f'[DEBUG] cdm_results 类型: {type(cdm_results)}')
-                new_comment.cdm_predictions = str(cdm_results)
-                new_comment.student_proficiency = avg_proficiency
-                print(f'[DEBUG] 提交前 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
-                print(f'[DEBUG] 提交前 - new_comment.student_proficiency: {new_comment.student_proficiency}')
-                db.session.commit()
-                print(f'[DEBUG] 提交后 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
-                print(f'[DEBUG] 提交后 - new_comment.student_proficiency: {new_comment.student_proficiency}')
-                # 重新加载对象以验证保存
-                temp_comment = Comment.query.get(new_comment.id)
-                print(f'[DEBUG] 重新加载后 - temp_comment.cdm_predictions: {temp_comment.cdm_predictions}')
-                print(f'[DEBUG] 重新加载后 - temp_comment.student_proficiency: {temp_comment.student_proficiency}')
-                
-                print(f'\n[NeuralCDM] 预测结果已保存至数据库')
-                
-                # ========== 使用Dify智能体生成评语 ==========
-                print(f'\n{"="*60}')
-                print(f'[Dify] 开始生成基于Dify的评语')
-                print(f'{"="*60}')
-                
-                dify_comment = generate_comment_with_dify(
-                    student.username,
-                    exercise_ids, 
-                    predictions, 
-                    actual_scores, 
-                    knowledge_codes,
-                    dify_api='http://localhost:83/v1'
-                )
-                
-                if dify_comment:
-                    new_comment.content = dify_comment
-                    db.session.commit()
-                    print(f'[Dify] 评语已保存至数据库')
-                else:
-                    print(f'[Dify] 评语生成失败，使用默认评语')
-                    # 构建默认评语
-                    answer_texts = []
+                if exercise_ids:
+                    # 确保学生 ID 在模型范围内
+                    if student_id_int >= 190:
+                        # 使用默认学生 ID 1
+                        student_id_int = 1
+                        print(f'[NeuralCDM] 学生 ID {student_id} 超出模型范围，使用默认 ID 1')
+                    
+                    print(f'[DEBUG] 调用 predict_student_performance 参数:')
+                    print(f'[DEBUG] student_id_int: {student_id_int}')
+                    print(f'[DEBUG] exercise_ids: {exercise_ids}')
+                    print(f'[DEBUG] actual_scores: {actual_scores}')
+                    print(f'[DEBUG] knowledge_codes: {knowledge_codes}')
+                    print(f'[DEBUG] cdm_model_path: {cdm_model_path}')
+
+                    student_proficiency, predictions = predict_student_performance(
+                            cdm_model, 
+                            student_id_int, 
+                            column.id,
+                            exercise_ids,
+                            actual_scores,
+                            knowledge_codes_dict,
+                            knowledge_num
+                        )
+                        
+                    print(f'[DEBUG] 预测结果: {predictions}')
+                    
+                    print(f'\n[NeuralCDM] 预测结果:')
+                    print(f'-' * 60)
                     for i, (exer_id, pred, actual) in enumerate(zip(exercise_ids, predictions, actual_scores)):
                         actual_str = '正确' if actual == 1 else '错误' if actual == 0 else '未识别'
-                        pred_str = f'{pred:.2%}'
-                        answer_texts.append(f"第{exer_id}题：实际={actual_str}，预测正确率={pred_str}")
-                    default_comment = f"{student.username}在{column.title}的{style}风格评语：{'; '.join(answer_texts)}。整体掌握度：{avg_proficiency:.2%}，能力等级：{'优秀' if avg_proficiency > 0.7 else '良好' if avg_proficiency > 0.5 else '一般' if avg_proficiency > 0.3 else '需加强'}"
-                    new_comment.content = default_comment
+                        pred_str = '正确' if pred >= 0.5 else '错误'
+                        match_str = '✓' if (pred >= 0.5 and actual == 1) or (pred < 0.5 and actual == 0) else '✗'
+                        print(f'  第{exer_id}题: 预测正确率={pred:.4f} ({pred_str}), 实际={actual_str}, 预测{match_str}')
+                    
+                    print(f'\n[NeuralCDM] 学生知识点掌握情况分析:')
+                    print(f'-' * 60)
+                    weaknesses = analyze_student_weaknesses(cdm_model, student_id_int, top_n=5)
+                    print(f'[DEBUG] 弱点分析结果: {weaknesses}')
+                    for wk in weaknesses:
+                        print(f'  知识点{wk["knowledge_id"]}: 掌握度={wk["proficiency"]:.4f} ({wk["level"]})')
+                    
+                    avg_proficiency = sum([w['proficiency'] for w in weaknesses]) / len(weaknesses)
+                    print(f'\n[NeuralCDM] 学生整体能力评估:')
+                    print(f'  平均掌握度: {avg_proficiency:.4f}')
+                    print(f'  能力等级: {"优秀" if avg_proficiency > 0.7 else "良好" if avg_proficiency > 0.5 else "一般" if avg_proficiency > 0.3 else "需加强"}')
+                    
+                    cdm_results = format_cdm_predictions(exercise_ids, predictions)
+                    print(f'[DEBUG] cdm_results: {cdm_results}')
+                    print(f'[DEBUG] cdm_results 类型: {type(cdm_results)}')
+                    new_comment.cdm_predictions = str(cdm_results)
+                    new_comment.student_proficiency = avg_proficiency
+                    print(f'[DEBUG] 提交前 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
+                    print(f'[DEBUG] 提交前 - new_comment.student_proficiency: {new_comment.student_proficiency}')
                     db.session.commit()
-                
-            else:
-                print(f'[NeuralCDM] 跳过预测: 无题目数据或学生ID超出模型范围')
-                # 无预测数据时的默认处理
+                    print(f'[DEBUG] 提交后 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
+                    print(f'[DEBUG] 提交后 - new_comment.student_proficiency: {new_comment.student_proficiency}')
+                    # 重新加载对象以验证保存
+                    temp_comment = Comment.query.get(new_comment.id)
+                    print(f'[DEBUG] 重新加载后 - temp_comment.cdm_predictions: {temp_comment.cdm_predictions}')
+                    print(f'[DEBUG] 重新加载后 - temp_comment.student_proficiency: {temp_comment.student_proficiency}')
+                    
+                    print(f'\n[NeuralCDM] 预测结果已保存至数据库')
+                    
+                    # ========== 使用Dify智能体生成评语 ==========
+                    print(f'\n{"="*60}')
+                    print(f'[Dify] 开始生成基于Dify的评语')
+                    print(f'{"="*60}')
+                    
+                    dify_comment = generate_comment_with_dify(
+                        student.username,
+                        exercise_ids, 
+                        predictions, 
+                        actual_scores, 
+                        knowledge_codes,
+                        dify_api='http://localhost:83/v1'
+                    )
+                    
+                    if dify_comment:
+                        new_comment.content = dify_comment
+                        db.session.commit()
+                        print(f'[Dify] 评语已保存至数据库')
+                    else:
+                        print(f'[Dify] 评语生成失败，使用默认评语')
+                        # 构建默认评语
+                        answer_texts = []
+                        for i, (exer_id, pred, actual) in enumerate(zip(exercise_ids, predictions, actual_scores)):
+                            actual_str = '正确' if actual == 1 else '错误' if actual == 0 else '未识别'
+                            pred_str = f'{pred:.2%}'
+                            answer_texts.append(f"第{exer_id}题：实际={actual_str}，预测正确率={pred_str}")
+                        default_comment = f"{student.username}在{column.title}的{style}风格评语：{'; '.join(answer_texts)}。整体掌握度：{avg_proficiency:.2%}，能力等级：{'优秀' if avg_proficiency > 0.7 else '良好' if avg_proficiency > 0.5 else '一般' if avg_proficiency > 0.3 else '需加强'}"
+                        new_comment.content = default_comment
+                        db.session.commit()
+                else:
+                    print(f'[NeuralCDM] 跳过预测: 无题目数据或学生ID超出模型范围')
+                    # 无预测数据时的默认处理
+                    answer_texts = []
+                    if new_comment.answer_result:
+                        results = new_comment.answer_result.split('|')
+                        for i, result in enumerate(results):
+                            if result == "正确":
+                                answer_texts.append(f"第{i+1}题：正确")
+                            elif result == "错误":
+                                answer_texts.append(f"第{i+1}题：错误")
+                            elif result == "未识别":
+                                answer_texts.append(f"第{i+1}题：未识别")
+                    default_comment = f"{student.username}在{column.title}的{style}风格评语：{'; '.join(answer_texts) if answer_texts else '无结果'}"
+                    new_comment.content = default_comment
+                    # 设置默认值
+                    new_comment.cdm_predictions = str([])
+                    new_comment.student_proficiency = 0.5
+                    print(f'[DEBUG] 无预测数据时 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
+                    print(f'[DEBUG] 无预测数据时 - new_comment.student_proficiency: {new_comment.student_proficiency}')
+                    db.session.commit()
+                    print(f'[DEBUG] 提交后 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
+                    print(f'[DEBUG] 提交后 - new_comment.student_proficiency: {new_comment.student_proficiency}')
+                    # 重新加载对象以验证保存
+                    temp_comment = Comment.query.get(new_comment.id)
+                    print(f'[DEBUG] 重新加载后 - temp_comment.cdm_predictions: {temp_comment.cdm_predictions}')
+                    print(f'[DEBUG] 重新加载后 - temp_comment.student_proficiency: {temp_comment.student_proficiency}')
+            except Exception as cdm_error:
+                print(f'[NeuralCDM] 预测过程出错: {str(cdm_error)}')
+                import traceback
+                traceback.print_exc()
+                # 出错时生成默认评语
                 answer_texts = []
                 if new_comment.answer_result:
                     results = new_comment.answer_result.split('|')
@@ -807,21 +925,10 @@ def generate_comment():
                 # 设置默认值
                 new_comment.cdm_predictions = str([])
                 new_comment.student_proficiency = 0.5
-                print(f'[DEBUG] 无预测数据时 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
-                print(f'[DEBUG] 无预测数据时 - new_comment.student_proficiency: {new_comment.student_proficiency}')
                 db.session.commit()
-                print(f'[DEBUG] 提交后 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
-                print(f'[DEBUG] 提交后 - new_comment.student_proficiency: {new_comment.student_proficiency}')
-                # 重新加载对象以验证保存
-                temp_comment = Comment.query.get(new_comment.id)
-                print(f'[DEBUG] 重新加载后 - temp_comment.cdm_predictions: {temp_comment.cdm_predictions}')
-                print(f'[DEBUG] 重新加载后 - temp_comment.student_proficiency: {temp_comment.student_proficiency}')
-        
-        except Exception as cdm_error:
-            print(f'[NeuralCDM] 预测过程出错: {str(cdm_error)}')
-            import traceback
-            traceback.print_exc()
-            # 出错时生成默认评语
+        else:
+            print(f'[INFO] 跳过模型预测，直接生成评语')
+            # 无预测数据时的默认处理
             answer_texts = []
             if new_comment.answer_result:
                 results = new_comment.answer_result.split('|')
@@ -837,8 +944,8 @@ def generate_comment():
             # 设置默认值
             new_comment.cdm_predictions = str([])
             new_comment.student_proficiency = 0.5
-            print(f'[DEBUG] 异常情况下 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
-            print(f'[DEBUG] 异常情况下 - new_comment.student_proficiency: {new_comment.student_proficiency}')
+            print(f'[DEBUG] 跳过模型预测时 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
+            print(f'[DEBUG] 跳过模型预测时 - new_comment.student_proficiency: {new_comment.student_proficiency}')
             db.session.commit()
             print(f'[DEBUG] 提交后 - new_comment.cdm_predictions: {new_comment.cdm_predictions}')
             print(f'[DEBUG] 提交后 - new_comment.student_proficiency: {new_comment.student_proficiency}')
@@ -895,5 +1002,8 @@ def generate_comment():
         
         return ok(response_data, status_code=201)
     except Exception as e:
+        print(f'[ERROR] 生成评语失败：{str(e)}')
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
         return fail(f'生成评语失败：{str(e)}', 500)

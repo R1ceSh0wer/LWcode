@@ -874,9 +874,41 @@
             <p class="form-hint">请选择已训练完成的模型存档</p>
           </div>
           
+          <!-- 上传方式选择 -->
           <div class="form-group">
+            <label class="form-label">题目上传方式</label>
+            <div class="upload-method-tabs">
+              <button 
+                :class="['tab-button', { active: uploadMethod === 'image' }]"
+                @click="uploadMethod = 'image'"
+              >
+                上传图片
+              </button>
+              <button 
+                :class="['tab-button', { active: uploadMethod === 'text' }]"
+                @click="uploadMethod = 'text'"
+              >
+                直接输入文本
+              </button>
+            </div>
+          </div>
+          
+          <!-- 图片上传 -->
+          <div v-if="uploadMethod === 'image'" class="form-group">
             <label class="form-label">上传试题图片</label>
             <ImageUpload ref="columnImageUpload" />
+          </div>
+          
+          <!-- 文本上传 -->
+          <div v-if="uploadMethod === 'text'" class="form-group">
+            <label class="form-label">输入题目文本</label>
+            <textarea 
+              v-model="newColumn.questionText"
+              placeholder="请按格式输入题目：1：题目内容；2：题目内容；..."
+              class="form-textarea"
+              rows="8"
+            ></textarea>
+            <p class="form-hint">请按照 "1：题目；2：题目；..." 的格式输入</p>
           </div>
 
           <div class="form-group">
@@ -891,6 +923,21 @@
               @change="handleHumanKnowledgeFileUpload"
             />
             <p class="form-hint">格式示例：{"1":[3,4],"2":[5]} 或 1: 3,4</p>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">知识点处理方式</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  v-model="newColumn.useModelPrediction"
+                  class="form-checkbox"
+                />
+                <span>使用模型预测的知识点</span>
+              </label>
+            </div>
+            <p class="form-hint">如果选择是，则使用模型预测的知识点；如果选择否，则直接使用上传的txt文件中的知识点</p>
           </div>
         </div>
         
@@ -943,6 +990,16 @@
               </option>
             </select>
             <p class="form-hint">可修改专栏使用的模型存档</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">评语生成方式</label>
+            <select v-model="editingColumn.commentGenerationMethod" class="form-input">
+              <option value="image">1. 上传试题图片</option>
+              <option value="text">2. 文本生成专栏的选择错误试题</option>
+              <option value="sequence">3. 按照题目顺序依次输入答错答对情况</option>
+            </select>
+            <p class="form-hint">选择生成评语时的操作方式</p>
           </div>
 
           <div class="form-group">
@@ -1281,8 +1338,40 @@
       @close="closeCommentModal"
     >
       <div class="comment-generation-section">
-        <!-- 图像上传 -->
-        <div class="image-upload-section">
+        <!-- 文本上传的专栏显示答题情况选择 -->
+        <div v-if="isTextColumn" class="answer-selection-section">
+          <div v-if="selectedColumn && selectedColumn.commentGenerationMethod === 'sequence'">
+            <h4>输入答题情况序列</h4>
+            <p class="answer-selection-hint">请按照题目顺序输入答错答对情况，用英文逗号分隔，对的用true，错的用false（如：false, true, false, true）</p>
+            <textarea 
+              v-model="answerSequence" 
+              class="sequence-input" 
+              placeholder="请输入答题情况序列，如：false, true, false, true"
+              rows="3"
+            ></textarea>
+          </div>
+          <div v-else>
+            <h4>选择错误题目</h4>
+            <p class="answer-selection-hint">请选择学生答错的题目（默认所有题目都正确）</p>
+            <div class="answer-options">
+              <div v-for="(result, index) in answerResults" :key="index" class="answer-item">
+                <label class="answer-checkbox-label">
+                  <span class="question-number">第 {{ index + 1 }} 题</span>
+                  <input 
+                    type="checkbox" 
+                    :checked="answerResults[index] === 'false'" 
+                    @change="answerResults[index] = $event.target.checked ? 'false' : 'true'" 
+                  />
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-label">错误</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 图片上传的专栏显示图片上传 -->
+        <div v-else class="image-upload-section">
           <h4>上传试题截图</h4>
           <ImageUpload ref="imageUpload" :key="imageUploadKey" :student-id="selectedStudentId" :column-id="selectedColumnId" />
         </div>
@@ -1347,7 +1436,7 @@
         <button 
           @click="generateComment"
           class="submit-button"
-          :disabled="!selectedStudentId || !selectedColumnId || imageUpload.value?.previewImages.length === 0 || isGenerating"
+          :disabled="!selectedStudentId || !selectedColumnId || (isTextColumn ? (selectedColumn && selectedColumn.commentGenerationMethod === 'sequence' ? !answerSequence.trim() : answerResults.length === 0) : imageUpload.value?.previewImages.length === 0) || isGenerating"
         >
           {{ isGenerating ? '处理中...' : (isEditingComment ? '确定修改' : '生成评语') }}
         </button>
@@ -1700,7 +1789,8 @@ const handleDistributeStudentDropdownClickOutside = (e) => {
 // 专栏模态框
 const isColumnModalVisible = ref(false);
 const isCreatingColumn = ref(false);
-const newColumn = ref({ name: '', archiveId: '' });
+const newColumn = ref({ name: '', archiveId: '', questionText: '', useModelPrediction: true });
+const uploadMethod = ref('image'); // 'image' 或 'text'
 const columnImageUpload = ref(null);
 const humanKnowledgeFileForCreate = ref(null);
 const humanKnowledgeFileInput = ref(null);
@@ -1712,7 +1802,8 @@ const editingColumn = ref({
   id: '',
   name: '',
   archiveId: '',
-  imageUrls: []
+  imageUrls: [],
+  commentGenerationMethod: 'image' // 评语生成方式：image=上传图片, text=选择错误试题, sequence=依次输入答对答错情况
 });
 
 // 专栏图片放大预览（只读）
@@ -1779,6 +1870,7 @@ const additionComment = ref('');
 const currentComment = ref(null);
 const isGenerating = ref(false);
 const isStoring = ref(false);
+const answerSequence = ref(''); // 用于sequence评语生成方式的答题情况序列
 
 // 图片上传
 const imageUpload = ref(null);
@@ -1910,6 +2002,44 @@ const handleEditComment = () => {
   // 加载当前评语的附加评语
   additionComment.value = currentViewingComment.value.addition || '';
   
+  // 根据专栏类型初始化答题结果数组
+  if (selectedColumnId.value) {
+    const column = columns.value.find(c => c.id === selectedColumnId.value);
+    if (isTextColumn.value) {
+      if (column && column.commentGenerationMethod === 'sequence') {
+        // 序列输入方式，初始化answerSequence
+        answerSequence.value = '';
+        // 如果有历史答题结果，转换为序列格式
+        if (currentViewingComment.value.answerResults && currentViewingComment.value.answerResults.length > 0) {
+          answerSequence.value = currentViewingComment.value.answerResults.map(item => item.isCorrect).join(', ');
+        }
+      } else {
+        // 选择错误题目方式，初始化answerResults
+        if (column && column.questionText) {
+          try {
+            // 尝试解析JSON格式的questionText
+            const parsedQuestions = JSON.parse(column.questionText);
+            if (typeof parsedQuestions === 'object' && parsedQuestions !== null) {
+              answerResults.value = new Array(Object.keys(parsedQuestions).length).fill('true');
+            } else {
+              // 如果不是JSON格式，使用默认值
+              answerResults.value = ['true'];
+            }
+          } catch (error) {
+            // 解析失败，使用默认值
+            answerResults.value = ['true'];
+          }
+        } else {
+          answerResults.value = ['true'];
+        }
+      }
+    } else {
+      answerResults.value = [];
+    }
+  } else {
+    answerResults.value = [];
+  }
+  
   // 更新key强制重新渲染ImageUpload组件
   imageUploadKey.value++;
   
@@ -2006,6 +2136,43 @@ const getStudentColumnComment = (studentId, columnId) => {
   return student.comments.find(comment => String(comment.columnId) === strColumnId) || null;
 };
 
+// 计算当前选中的专栏
+const selectedColumn = computed(() => {
+  if (!selectedColumnId.value) return null;
+  return columns.value.find(c => c.id === selectedColumnId.value) || null;
+});
+
+// 计算当前选中的专栏是否为文本上传的专栏
+const isTextColumn = computed(() => {
+  if (!selectedColumnId.value) return false;
+  const column = selectedColumn.value;
+  if (!column) return false;
+  
+  // 检查评语生成方式
+  if (column.commentGenerationMethod === 'text' || column.commentGenerationMethod === 'sequence') {
+    return true;
+  }
+  
+  // 兼容旧专栏，检查questionText
+  if (!column.questionText || column.questionImagePath1) return false;
+  
+  // 检查questionText是否有内容，无论是JSON对象还是普通字符串
+  try {
+    // 尝试解析为JSON对象
+    const parsedQuestions = JSON.parse(column.questionText);
+    if (typeof parsedQuestions === 'object' && parsedQuestions !== null) {
+      return Object.keys(parsedQuestions).length > 0;
+    }
+  } catch (error) {
+    // 如果解析失败，检查是否为普通字符串且不为空
+    return typeof column.questionText === 'string' && column.questionText.trim().length > 0;
+  }
+  return false;
+});
+
+// 初始化答题结果数组
+const answerResults = ref([]);
+
 // 处理学生操作(生成评语)
 const handleStudentAction = (student) => {
   selectedStudent.value = student;
@@ -2013,8 +2180,39 @@ const handleStudentAction = (student) => {
   
   if (selectedColumnId.value) {
     currentComment.value = getStudentColumnComment(student.id, selectedColumnId.value);
+    
+    // 根据专栏类型初始化答题结果数组
+    if (isTextColumn.value) {
+      const column = columns.value.find(c => c.id === selectedColumnId.value);
+      if (column && column.commentGenerationMethod === 'sequence') {
+        // 序列输入方式，初始化answerSequence
+        answerSequence.value = '';
+      } else {
+        // 选择错误题目方式，初始化answerResults
+        if (column && column.questionText) {
+          try {
+            // 尝试解析JSON格式的questionText
+            const parsedQuestions = JSON.parse(column.questionText);
+            if (typeof parsedQuestions === 'object' && parsedQuestions !== null) {
+              answerResults.value = new Array(Object.keys(parsedQuestions).length).fill('true');
+            } else {
+              // 如果不是JSON格式，使用默认值
+              answerResults.value = ['true'];
+            }
+          } catch (error) {
+            // 解析失败，使用默认值
+            answerResults.value = ['true'];
+          }
+        } else {
+          answerResults.value = ['true'];
+        }
+      }
+    } else {
+      answerResults.value = [];
+    }
   } else {
     currentComment.value = null;
+    answerResults.value = [];
   }
   
   selectedStyle.value = 'encouraging';
@@ -2205,11 +2403,16 @@ const generateBatchComments = async () => {
 
 // 关闭专栏模态框
 const closeColumnModal = () => {
-  newColumn.value = { name: '', archiveId: '' };
+  newColumn.value = { name: '', archiveId: '', questionText: '' };
+  uploadMethod.value = 'image'; // 重置为默认的图片上传方式
   isColumnModalVisible.value = false;
   humanKnowledgeFileForCreate.value = null;
   if (humanKnowledgeFileInput.value) {
     humanKnowledgeFileInput.value.value = '';
+  }
+  // 清空图片上传组件的预览
+  if (columnImageUpload.value) {
+    columnImageUpload.value.clearAll();
   }
 };
 
@@ -2253,7 +2456,8 @@ const openColumnInfoModal = async () => {
       id: col.id,
       name: col.name,
       archiveId: col.archiveId ? String(col.archiveId) : '',
-      imageUrls: paths.map(p => (String(p).startsWith('http') ? String(p) : `http://localhost:5000/${String(p).replace(/^\//, '')}`))
+      imageUrls: paths.map(p => (String(p).startsWith('http') ? String(p) : `http://localhost:5000/${String(p).replace(/^\//, '')}`)),
+      commentGenerationMethod: col.commentGenerationMethod || 'image' // 获取评语生成方式，默认为上传图片
     };
     isColumnInfoModalVisible.value = true;
   } catch (e) {
@@ -2271,7 +2475,8 @@ const saveColumnInfo = async () => {
   try {
     const resp = await updateColumn(editingColumn.value.id, {
       name: editingColumn.value.name,
-      archiveId: editingColumn.value.archiveId
+      archiveId: editingColumn.value.archiveId,
+      commentGenerationMethod: editingColumn.value.commentGenerationMethod
     });
     if (!resp?.success) {
       alert(resp?.message || '保存失败，请重试');
@@ -2815,7 +3020,9 @@ const createColumn = async () => {
     const columnData = {
       name: newColumn.value.name,
       archiveId: newColumn.value.archiveId,
-      teacherId: 1 // 默认教师 ID 为 1
+      teacherId: 1, // 默认教师 ID 为 1
+      useModelPrediction: newColumn.value.useModelPrediction !== false, // 默认使用模型预测
+      commentGenerationMethod: uploadMethod.value === 'image' ? 'image' : 'text' // 根据上传方式设置默认评语生成方式
     };
 
     // 可选：题目知识点标注文件（txt）
@@ -2823,11 +3030,19 @@ const createColumn = async () => {
       columnData.humanKnowledgeFile = humanKnowledgeFileForCreate.value;
     }
     
-    // 获取预览图片的文件对象
-    if (columnImageUpload.value) {
-      const imageFiles = columnImageUpload.value.getPreviewFiles();
-      if (imageFiles.length > 0) {
-        columnData.imageFiles = imageFiles;
+    // 根据上传方式添加相应数据
+    if (uploadMethod.value === 'image') {
+      // 获取预览图片的文件对象
+      if (columnImageUpload.value) {
+        const imageFiles = columnImageUpload.value.getPreviewFiles();
+        if (imageFiles.length > 0) {
+          columnData.imageFiles = imageFiles;
+        }
+      }
+    } else if (uploadMethod.value === 'text') {
+      // 添加文本题目数据
+      if (newColumn.value.questionText) {
+        columnData.questionText = newColumn.value.questionText;
       }
     }
     
@@ -2861,44 +3076,84 @@ const generateComment = async () => {
   if (!selectedStudentId.value || !selectedColumnId.value) return;
   
   // ====== 前置校验：专栏图片数 vs 当前选择上传数（立即提示，不阻断后续生成） ======
-  try {
-    const columnCount = await getColumnImageCount(selectedColumnId.value);
-    // 这里使用“预览区已选择的图片数”，因为 uploadImages() 会清空预览
-    const selectedCount = getImageUploadSelectedCount(imageUpload.value);
-    if (columnCount > 0 && selectedCount !== columnCount) {
-      alert(`注意：当前专栏有 ${columnCount} 张试题图片，但你选择上传了 ${selectedCount} 张答案图片，请检查上传图片数量是否正确！`);
-      return;
+  if (!isTextColumn.value) {
+    try {
+      const columnCount = await getColumnImageCount(selectedColumnId.value);
+      // 这里使用“预览区已选择的图片数”，因为 uploadImages() 会清空预览
+      const selectedCount = getImageUploadSelectedCount(imageUpload.value);
+      if (columnCount > 0 && selectedCount !== columnCount) {
+        alert(`注意：当前专栏有 ${columnCount} 张试题图片，但你选择上传了 ${selectedCount} 张答案图片，请检查上传图片数量是否正确！`);
+        return;
+      }
+    } catch (e) {
+      // 校验失败不影响主流程
+      console.error('前置图片数量校验失败:', e);
     }
-  } catch (e) {
-    // 校验失败不影响主流程
-    console.error('前置图片数量校验失败:', e);
   }
 
   isGenerating.value = true;
   isStoring.value = true;
   
   try {
-    // 准备图片路径（去掉完整URL前缀，只保留相对路径）
-    const uploadedImages = await imageUpload.value.uploadImages(true);
-    const relativeImagePaths = uploadedImages.map(img => {
-      if (img.path && img.path.startsWith('http://localhost:5000/')) {
-        return img.path.replace('http://localhost:5000/', '');
+    let relativeImagePaths = [];
+    let answerResultsData = [];
+    
+    if (isTextColumn.value) {
+      if (selectedColumn.value && selectedColumn.value.commentGenerationMethod === 'sequence') {
+        // 序列输入方式，解析用户输入的答题情况序列
+        if (answerSequence.value.trim()) {
+          const sequenceArray = answerSequence.value.split(',').map(item => item.trim().toLowerCase());
+          answerResultsData = sequenceArray.map((result, index) => ({
+            questionNumber: index + 1,
+            isCorrect: result === 'true' // 已转换为小写，所以只需要比较小写的'true'
+          }));
+        }
+        console.log('序列输入答题结果:', answerResultsData);
+        console.log('answerSequence.value:', answerSequence.value);
+      } else {
+        // 选择错误题目方式，使用答题结果
+        answerResultsData = answerResults.value.map((result, index) => ({
+          questionNumber: index + 1,
+          isCorrect: result === 'true'
+        }));
+        console.log('文本专栏答题结果:', answerResultsData);
+        console.log('answerResults.value:', answerResults.value);
       }
-      return img.path;
-    });
+      console.log('isTextColumn.value:', isTextColumn.value);
+    } else {
+      // 图片上传的专栏，上传图片
+      // 准备图片路径（去掉完整URL前缀，只保留相对路径）
+      const uploadedImages = await imageUpload.value.uploadImages(true);
+      relativeImagePaths = uploadedImages.map(img => {
+        if (img.path && img.path.startsWith('http://localhost:5000/')) {
+          return img.path.replace('http://localhost:5000/', '');
+        }
+        return img.path;
+      });
+    }
     
     // 调用API生成评语或更新评语
     const commentData = {
       studentId: selectedStudentId.value,
       columnId: selectedColumnId.value,
       style: selectedStyle.value,
-      imagePaths: relativeImagePaths, // 使用相对路径
-      addition: additionComment.value // 附加评语
+      imagePaths: isTextColumn.value ? [] : relativeImagePaths, // 文本专栏不需要图片路径
+      addition: additionComment.value, // 附加评语
+      answerResults: answerResultsData, // 答题结果
+      useModelPrediction: true // 使用模型预测知识点（创建专栏时的选项只影响专栏创建，不影响评语生成）
     };
+    
+    console.log('发送的评论数据:', commentData);
+    console.log('answerResultsData长度:', answerResultsData.length);
+    if (answerResultsData.length > 0) {
+      console.log('answerResultsData[0]:', answerResultsData[0]);
+      console.log('answerResultsData[0].isCorrect:', answerResultsData[0].isCorrect);
+    }
     
     // 直接调用 apiGenerateComment，后端会自动处理更新或创建
     const resp = await apiGenerateComment(commentData);
-    if (!resp?.success || !resp?.data) {
+    console.log('apiGenerateComment 响应:', resp);
+    if (!resp || !resp.success || !resp.data) {
       throw new Error(resp?.message || '生成/修改评语失败');
     }
     const newComment = resp.data;
@@ -3193,6 +3448,77 @@ const handleDeleteArchive = async () => {
   height: 70px;
 }
 
+/* 答题情况选择样式 */
+.answer-selection-section {
+  margin-bottom: 20px;
+}
+
+.answer-selection-hint {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 15px;
+  margin-top: 5px;
+}
+
+.answer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-item {
+  margin-bottom: 10px;
+}
+
+.answer-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+.question-number {
+  width: 80px;
+  font-weight: 500;
+}
+
+.answer-checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #4a90e2;
+  border-radius: 50%;
+  margin: 0 10px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.answer-checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  background-color: #4a90e2;
+  border-color: #4a90e2;
+}
+
+.answer-checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: #333;
+}
+
 .nav-left {
   display: flex;
   align-items: center;
@@ -3336,6 +3662,36 @@ const handleDeleteArchive = async () => {
   align-items: center;
   gap: 5px;
   transition: background-color 0.3s ease;
+}
+
+/* 上传方式选择标签页 */
+.upload-method-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.upload-method-tabs .tab-button {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #f5f7fa;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.upload-method-tabs .tab-button:hover {
+  background: #e8ecf4;
+  border-color: #667eea;
+}
+
+.upload-method-tabs .tab-button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
 }
 
 .create-column-button:hover {
